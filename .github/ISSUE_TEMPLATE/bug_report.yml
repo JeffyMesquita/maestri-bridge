@@ -1,0 +1,70 @@
+name: Bug report
+description: Something doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting a bug. Never paste pairing codes or access tokens, in the text or in screenshots.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Select some code
+        2. Press Ctrl+M
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: Maestri Bridge version
+      placeholder: 0.1.4
+    validations:
+      required: true
+  - type: input
+    id: editor
+    attributes:
+      label: Editor and version
+      placeholder: VS Code 1.106, Cursor 2.1, ...
+    validations:
+      required: true
+  - type: input
+    id: maestri-version
+    attributes:
+      label: Maestri version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: window
+    attributes:
+      label: Editor window
+      options:
+        - Local
+        - WSL
+        - SSH
+        - Container
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Anything from the developer tools that helps. Remove any token first.
