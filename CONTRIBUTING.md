@@ -2,6 +2,8 @@
 
 Thanks for your interest in improving Maestri Bridge. Bug reports, ideas, translations and pull requests are all welcome.
 
+Everyone taking part in this project is expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Before you start
 
 - **Bugs.** Open an issue with your OS, editor and version, Maestri version, what you did, what you expected and what happened. Screenshots help.
