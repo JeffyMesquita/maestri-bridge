@@ -26,7 +26,8 @@
   "main": "./dist/extension.cjs",
   "activationEvents": [
     "onStartupFinished",
-    "onUri"
+    "onUri",
+    "onWebviewPanel:maestriBridge.chatPanel"
   ],
   "contributes": {
     "commands": [
@@ -120,6 +121,12 @@
         "command": "maestriBridge.agents.showWorkspace",
         "title": "%command.agents.showWorkspace%",
         "category": "Maestri"
+      },
+      {
+        "command": "maestriBridge.chat.openInEditor",
+        "title": "%command.chat.openInEditor%",
+        "category": "Maestri",
+        "icon": "$(link-external)"
       },
       {
         "command": "maestriBridge.notes.next",
@@ -258,6 +265,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "maestriBridge.chat.openInEditor",
+          "group": "navigation@1",
+          "when": "view == maestriBridge.chat"
+        },
         {
           "command": "maestriBridge.openComposer",
           "group": "navigation@1",
@@ -409,6 +421,12 @@
           "name": "%view.agents.name%",
           "icon": "media/maestri-logo.svg",
           "contextualTitle": "Maestri"
+        },
+        {
+          "type": "webview",
+          "id": "maestriBridge.chat",
+          "name": "%view.chat.name%",
+          "contextualTitle": "Maestri"
         }
       ]
     },
@@ -425,10 +443,11 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.webview.json",
     "test": "vitest run --maxWorkers=5%",
     "build:ext": "esbuild src/extension.ts --bundle --platform=node --format=cjs --target=node20 --external:vscode --sourcemap --outfile=dist/extension.cjs",
-    "build:webview": "esbuild src/webview/composer.ts --bundle --platform=browser --format=iife --target=es2022 --outfile=dist/composer.js",
+    "build:webview": "esbuild src/webview/chat.ts --bundle --platform=browser --format=iife --target=es2022 --minify --outfile=dist/chat.js",
     "package": "pnpm run build && cp ../../README.md README.md && vsce package --no-dependencies --baseContentUrl https://github.com/PierreOliveira1/maestri-bridge/blob/main --baseImagesUrl https://raw.githubusercontent.com/PierreOliveira1/maestri-bridge/main --out maestri-bridge.vsix"
   },
   "devDependencies": {
+    "@types/markdown-it": "14.1.2",
     "@types/node": "^24.19.2",
     "@types/vscode": "1.95.0",
     "@vscode/vsce": "^4.1.0",
@@ -437,7 +456,8 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
-    "@maestri-bridge/core": "workspace:*"
+    "@maestri-bridge/core": "workspace:*",
+    "markdown-it": "14.1.0"
   },
   "capabilities": {
     "untrustedWorkspaces": {

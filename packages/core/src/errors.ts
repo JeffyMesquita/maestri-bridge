@@ -26,12 +26,14 @@ export type WireMessageId =
   | 'emptyMessage'
   | 'terminalNotRunning'
   | 'agentNotWaiting'
+  | 'chatBusy'
   | 'missingPairingSecret'
   | 'invalidPin'
   | 'connectFailed'
   | 'pinUnverifiable'
   | 'pinMismatch'
-  | 'connectTimeout';
+  | 'connectTimeout'
+  | 'socketHandshakeFailed';
 
 export type WireMessageParams = Readonly<Record<string, string | number>>;
 

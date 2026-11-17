@@ -11,7 +11,7 @@
   },
   "include": [
     "src/webview",
-    "src/composer-protocol.ts",
+    "src/chat-protocol.ts",
     "src/i18n"
   ]
 }

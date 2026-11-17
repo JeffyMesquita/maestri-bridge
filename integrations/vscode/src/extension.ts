@@ -3,8 +3,8 @@ import { AgentMonitor } from './agent-monitor.ts';
 import { registerAgentNotes } from './agent-notes.ts';
 import { registerAgentsView } from './agents-view.ts';
 import { registerAttentionNotifier } from './attention-notifier.ts';
+import { registerChatView } from './chat-view.ts';
 import { registerCommentComposer } from './comment-composer.ts';
-import { registerComposer } from './composer-panel.ts';
 import { CredentialStore } from './credential-store.ts';
 import { runPairingFlow } from './pairing-flow.ts';
 import { runQuickSend } from './quick-send.ts';
@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext): void {
       runQuickSend(session, memory),
     ),
     registerCommentComposer(services),
-    registerComposer(services),
+    registerChatView(services, monitor),
     registerAgentNotes(services, monitor),
     registerAgentsView(services, monitor),
     registerAttentionNotifier(services, monitor),

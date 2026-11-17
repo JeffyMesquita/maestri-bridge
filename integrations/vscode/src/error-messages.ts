@@ -19,6 +19,8 @@ const MESSAGE_KEYS: Record<WireMessageId, MessageKey> = {
   pinUnverifiable: 'errors.pinUnverifiable',
   pinMismatch: 'errors.pinMismatch',
   connectTimeout: 'errors.connectTimeout',
+  chatBusy: 'errors.chatBusy',
+  socketHandshakeFailed: 'errors.socketHandshakeFailed',
 };
 
 export function describeError(error: unknown): string {

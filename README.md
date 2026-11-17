@@ -1,13 +1,18 @@
 # Maestri Bridge
 
-Send code snippets and messages from your editor to the agents and terminals running in [Maestri](https://www.themaestri.app), without leaving your code. Maestri Bridge talks to Maestri through [Wire](https://www.themaestri.app/docs/wire), Maestri's local API.
+Chat with the agents running in [Maestri](https://www.themaestri.app) and send them code from your editor, without leaving your code. Maestri Bridge talks to Maestri through [Wire](https://www.themaestri.app/docs/wire), Maestri's local API.
 
-![Message panel with a code snippet attached](docs/images/panel.png)
+![Maestri chat in a VS Code tab next to the code, with a reply whose paths open the file](docs/images/chat.png)
+
+▶️ [Watch the 1-minute demo](docs/media/demo.mp4): pasting code into the chat, the agent answering from Maestri, opening the files it cites and a walkthrough with notes on the code.
 
 ## Features
 
 - **Inline message box.** Select code, press `Ctrl+M` and type. The box opens right below the selection and shows the file, the lines and the target agent.
-- **Message panel.** Press `Ctrl+M` again to move to a side panel for longer messages. Attach several snippets, even from different files, and pick the agent.
+- **Chat.** Talk to any agent the way you do in Maestri Chat: replies in Markdown, progress updates, the seven color threads, older history, attachments, and approve or reject when the agent asks. It lives in the Maestri sidebar and also opens in an editor tab.
+- **Paste code as a reference.** Copy lines from the editor and paste them in the chat: they become a reference to the file and lines, not loose text.
+- **Mentions and saved prompts.** Type `@` to mention an agent, a floor, a note, a portal, a Maestri action or a file. Type `$` to insert one of your saved Maestri prompts.
+- **Code links.** When an agent writes a path such as `src/auth/session.ts:12-24`, the path becomes a link that opens the file with those lines selected.
 - **Live agents sidebar.** See every agent in the current Maestri workspace with its status (working, idle, stopped, needs attention) and its latest output. From there you can write to an agent, open its terminal in Maestri and approve or reject a confirmation prompt.
 - **Floors.** Agents on the current floor come first. Agents on other floors are grouped by floor name, and the agent search also matches floor names.
 - **Agents show you code.** An agent can open a file in your editor, highlight lines and leave a note below them. Reply in the same box and the answer goes back to that agent. Several notes in a row become a tour you step through.
@@ -92,21 +97,37 @@ Select some code and press `Ctrl+M` (`Ctrl+Alt+M` on Windows and Linux). A box o
 
 ![Inline message box below the selected code](docs/images/inline-box.png)
 
-The header shows the file, the lines and the agent that will get the message. The buttons on the right of the header change the agent or open the message panel. By default, the target is the last agent you wrote to.
+The header shows the file, the lines and the agent that will get the message. The buttons on the right of the header change the agent or move the message to the chat. By default, the target is the last agent you wrote to.
 
 The box also opens from the `+` button in the editor margin, from the right-click menu and from **Maestri: Write to an agent (in the editor)** in the Command Palette.
 
-### Use the message panel
+### Chat with an agent
 
-Press `Ctrl+M` again, right after opening the box or while it has focus, to move to the message panel. The panel works better for longer messages:
+Press `Ctrl+M` again, right after opening the box or while it has focus, to move the message to the chat. The chat also opens from the Maestri sidebar, from the right-click menu and from **Maestri: Open chat** in the Command Palette. Click the icon at the top of the chat view to open it in an editor tab.
 
-- **To** shows the target agent. Click **Change** to pick another one.
-- **Attached** lists the snippets. Select more code anywhere and click **Add current selection**. Remove a snippet with its `×` button.
-- Type your message and press `Cmd+Enter`, or click **Send to ...**.
+- The agent's name sits at the top. Click it to talk to another agent.
+- The colored dots are the seven threads, the same ones as in Maestri. Click a dot to switch threads.
+- Replies show up as they arrive, with the agent's progress updates and its status (working, idle, waiting for you). When the agent asks for confirmation, **Approve** and **Reject** show up in the chat.
+- Paths in replies, such as `src/auth/session.ts:12-24`, open the file at those lines.
+- **Add selection** attaches the code selected in the editor. Attach files with the clip button, or paste an image.
+- Press `Cmd+Enter` (`Ctrl+Enter` on Windows and Linux) to send.
+- The `⋯` menu loads older messages, clears a thread or clears the history.
 
-After sending, a confirmation shows up next to the button, with a link that opens the agent's terminal in Maestri.
+**Paste code as a reference.** Copy lines in the editor and paste them in the chat. Instead of loose text, the chat adds a reference with the file and the lines, the same one **Add selection** creates. Text that didn't come from the editor, or a single line, is pasted as usual.
 
-The panel also opens from the right-click menu, from the Maestri sidebar and from **Maestri: Open message panel** in the Command Palette.
+![Code copied from the editor and pasted in the chat becomes a reference chip, then a file mention with @](docs/images/chat-paste.gif)
+
+**Mentions.** Type `@` to see everything Maestri offers: the Maestro, the agents, floors, notes and portals of the workspace, Maestri actions (new note, new portal, routines and others) and the files of the project. Keep typing to filter.
+
+**Saved prompts.** Type `$` to list the prompts you saved in Maestri, global ones and the ones of the current workspace. Picking one puts its text in the message box, where you can still edit it.
+
+![Typing $ lists the saved prompts and inserts the chosen one](docs/images/chat-prompts.gif)
+
+**Replies with code links.** The reply shows up as the agent works. Click a path in it to open the file with those lines selected.
+
+![The agent's reply arrives and its paths open the file at the cited lines](docs/images/chat-reply.gif)
+
+If chat is off for that agent in Maestri, the chat says so and offers to turn it on. Messages still reach the agent while it's off, but replies only show up once it's on.
 
 ### Pick an agent
 
@@ -124,7 +145,7 @@ Click the Maestri icon in the Activity Bar to open the sidebar.
 - Agents on other floors are grouped under the floor name.
 - Hover an agent to write to it or open it in Maestri.
 - When an agent asks for confirmation, **Approve** and **Reject** buttons show up on its row.
-- The buttons at the top open the message panel, switch to another Maestri workspace or floor, and refresh the list.
+- The buttons at the top open the chat, switch to another Maestri workspace or floor, and refresh the list.
 
 Maestri Bridge picks the Maestri workspace that matches the folder open in VS Code.
 
@@ -135,6 +156,10 @@ Agents can also point at code for you. An agent opens a file in your editor, hig
 - **Reply on the note.** Type in the box below the note and press `Cmd+Enter`. Your reply goes to that agent with the highlighted code attached, and shows up in the same box.
 - **Step through a tour.** When an agent leaves several notes in a row, use the arrows at the top of each note, or **Maestri: Next agent note** and **Maestri: Previous agent note**, to go from one to the next.
 - **Close notes** with the `×` on each note, or all at once with **Maestri: Clear agent notes**.
+
+Ask for it in plain words, for example *"Walk me through how terminals get grouped by floor. Use the maestri-bridge skill to show me in the editor."*
+
+![The agent walks through the code with numbered notes on the lines](docs/images/agent-notes.gif)
 
 Agents do this by opening a `vscode://maestri-bridge.maestri-bridge/show?...` link. The easiest way to teach them is the [agent skill](#agent-skill) below. The first time, VS Code asks whether Maestri Bridge may open the link. Check **Do not ask me again for this extension** and click **Open**.
 
@@ -175,7 +200,8 @@ All commands are under **Maestri** in the Command Palette.
 | Command | What it does |
 | --- | --- |
 | Write to an agent (in the editor) | Opens the inline message box for the current selection. |
-| Open message panel | Opens the message panel. |
+| Open chat | Opens the chat in the Maestri sidebar. |
+| Open chat in editor | Opens the chat in an editor tab. |
 | Quick send to agent (list) | Picks an agent from a list and sends the selection with a short message. |
 | Pair with Maestri | Connects VS Code to Maestri. |
 | Unpair from Maestri | Removes the saved access token. |

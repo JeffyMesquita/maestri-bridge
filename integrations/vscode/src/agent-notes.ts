@@ -1,4 +1,3 @@
-import { isAbsolute, normalize } from 'node:path';
 import * as vscode from 'vscode';
 import { SHOW_LINK_PATH, locateTerminal, parseShowLink } from '@maestri-bridge/core';
 import type { ShowLinkErrorCode } from '@maestri-bridge/core';
@@ -12,6 +11,7 @@ import { NoteTours } from './notes-tour.ts';
 import type { StopLocation, TourStop } from './notes-tour.ts';
 import type { ExtensionServices } from './services.ts';
 import type { AgentTarget } from './target-memory.ts';
+import { resolveWorkspaceFile } from './workspace-files.ts';
 
 const ERROR_KEYS: Record<ShowLinkErrorCode, MessageKey> = {
   missingFile: 'notes.error.missingFile',
@@ -69,7 +69,10 @@ export function registerAgentNotes(
   const revealStop = async (stop: TourStop<vscode.CommentThread>): Promise<void> => {
     const document = await vscode.workspace.openTextDocument(stop.thread.uri);
     const range = stop.thread.range ?? rangeFor(document, stop);
-    const options: vscode.TextDocumentShowOptions = { preserveFocus: false };
+    const options: vscode.TextDocumentShowOptions = {
+      preserveFocus: false,
+      viewColumn: vscode.ViewColumn.One,
+    };
     if (stop.startLine !== undefined) {
       options.selection = range;
     }
@@ -78,44 +81,14 @@ export function registerAgentNotes(
     stop.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
   };
 
-  const showNotFound = (name: string, file: string): undefined => {
-    void vscode.window.showWarningMessage(t('notes.error.notFound', { name, file }));
-    return undefined;
-  };
-
-  const exists = async (uri: vscode.Uri): Promise<boolean> => {
-    try {
-      await vscode.workspace.fs.stat(uri);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const resolveFile = async (file: string, name: string): Promise<vscode.Uri | undefined> => {
-    const absolute = isAbsolute(file);
-    const absolutePath = absolute ? vscode.Uri.file(normalize(file)).path : undefined;
-
-    let insideAnyFolder = false;
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
-      const uri =
-        absolutePath !== undefined
-          ? folder.uri.with({ path: absolutePath })
-          : vscode.Uri.joinPath(folder.uri, file.replaceAll('\\', '/'));
-      if (vscode.workspace.getWorkspaceFolder(uri) === undefined) {
-        continue;
-      }
-      insideAnyFolder = true;
-      if (await exists(uri)) {
-        return uri;
-      }
+    const result = await resolveWorkspaceFile(file);
+    if (result.kind === 'found') {
+      return result.uri;
     }
-
-    if (absolute && !insideAnyFolder) {
-      void vscode.window.showWarningMessage(t('notes.error.outsideWorkspace', { name, file }));
-      return undefined;
-    }
-    return showNotFound(name, file);
+    const key = result.kind === 'outside' ? 'notes.error.outsideWorkspace' : 'notes.error.notFound';
+    void vscode.window.showWarningMessage(t(key, { name, file }));
+    return undefined;
   };
 
   const agentLinksEnabled = (): boolean =>
@@ -161,7 +134,10 @@ export function registerAgentNotes(
       const range = rangeFor(document, location);
 
       if (request.text === undefined) {
-        const options: vscode.TextDocumentShowOptions = { preserveFocus: false };
+        const options: vscode.TextDocumentShowOptions = {
+          preserveFocus: false,
+          viewColumn: vscode.ViewColumn.One,
+        };
         if (request.startLine !== undefined) {
           options.selection = range;
         }

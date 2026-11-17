@@ -23,13 +23,64 @@ export async function wireRequest<T = unknown>(
   target: PinnedHost,
   options: WireRequestOptions,
 ): Promise<T> {
+  const response = await wireRawRequest(target, options, 'application/json');
+  if (response.status >= 200 && response.status < 300) {
+    if (response.body.length === 0) {
+      return undefined as T;
+    }
+    try {
+      return JSON.parse(response.body.toString('utf8')) as T;
+    } catch {
+      throw invalidResponseError();
+    }
+  }
+
+  throw errorFromResponse(
+    response.status,
+    response.headers,
+    response.body.toString('utf8'),
+  );
+}
+
+export async function wireRequestBytes(
+  target: PinnedHost,
+  options: WireRequestOptions,
+): Promise<{ body: Buffer; contentType?: string }> {
+  const response = await wireRawRequest(target, options, '*/*');
+  if (response.status >= 200 && response.status < 300) {
+    const result: { body: Buffer; contentType?: string } = { body: response.body };
+    const contentType = response.headers['content-type'];
+    if (typeof contentType === 'string') {
+      result.contentType = contentType;
+    }
+    return result;
+  }
+
+  throw errorFromResponse(
+    response.status,
+    response.headers,
+    response.body.toString('utf8'),
+  );
+}
+
+interface RawWireResponse {
+  status: number;
+  headers: IncomingHttpHeaders;
+  body: Buffer;
+}
+
+async function wireRawRequest(
+  target: PinnedHost,
+  options: WireRequestOptions,
+  accept: string,
+): Promise<RawWireResponse> {
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const { socket } = await connectPinned(target, { timeoutMs });
   const payload = buildPayload(options);
   const path = buildPath(options.path, options.query);
   const headers: Record<string, string> = {
     Host: formatHostHeader(target),
-    Accept: 'application/json',
+    Accept: accept,
   };
 
   if (options.token !== undefined) {
@@ -40,7 +91,7 @@ export async function wireRequest<T = unknown>(
     headers['Content-Length'] = String(payload.body.length);
   }
 
-  return new Promise<T>((resolve, reject) => {
+  return new Promise<RawWireResponse>((resolve, reject) => {
     let settled = false;
     let timer: NodeJS.Timeout | undefined;
 
@@ -109,29 +160,11 @@ export async function wireRequest<T = unknown>(
           settled = true;
           finish();
 
-          const status = res.statusCode ?? 0;
-          const responseBody = Buffer.concat(chunks);
-          if (status >= 200 && status < 300) {
-            if (responseBody.length === 0) {
-              resolve(undefined as T);
-              return;
-            }
-            try {
-              const parsed: unknown = JSON.parse(responseBody.toString('utf8'));
-              resolve(parsed as T);
-            } catch {
-              reject(
-                new WireError({
-                  code: 'unknown',
-                  message: 'Invalid response from Maestri.',
-                  messageId: 'invalidResponse',
-                }),
-              );
-            }
-            return;
-          }
-
-          reject(errorFromResponse(status, res.headers, responseBody.toString('utf8')));
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            body: Buffer.concat(chunks),
+          });
         });
       },
     );
@@ -146,8 +179,8 @@ export async function wireRequest<T = unknown>(
         new WireError({
           code: 'network',
           message: `Could not reach Maestri at ${target.host}:${target.port}.`,
-              messageId: 'unreachable',
-              params: { host: target.host, port: target.port },
+          messageId: 'unreachable',
+          params: { host: target.host, port: target.port },
           cause: error,
         }),
       );
@@ -222,6 +255,14 @@ function buildPath(
 function formatHostHeader(target: PinnedHost): string {
   const host = isIPv6(target.host) ? `[${target.host}]` : target.host;
   return `${host}:${target.port}`;
+}
+
+function invalidResponseError(): WireError {
+  return new WireError({
+    code: 'unknown',
+    message: 'Invalid response from Maestri.',
+    messageId: 'invalidResponse',
+  });
 }
 
 function errorFromResponse(status: number, headers: IncomingHttpHeaders, text: string): WireError {

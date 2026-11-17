@@ -14,9 +14,6 @@ export const compose: Record<keyof typeof source, string> = {
   'compose.message.title': 'Mensaje para {name}',
   'compose.pickAgent.title': '¿A qué agente?',
   'compose.prompt.heading': 'Referencia',
-  'compose.send.pickAgent': 'Elegir agente y enviar',
-  'compose.send.sending': 'Enviando…',
-  'compose.send.toAgent': 'Enviar a {name}',
   'compose.thread.emptyMessage': 'Escribe el mensaje antes de enviar.',
   'compose.thread.label': 'Maestri · {header} → {agent}',
   'compose.thread.labelNoAgent': 'Maestri · {header} · haz clic en 👤 para elegir el agente',
@@ -26,6 +23,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.agentNotWaiting': 'Ese agente no está esperando una respuesta.',
   'errors.connectFailed':
     'No se pudo conectar con Maestri en {host}:{port}. Comprueba que Maestri esté abierto y el Wire activo.',
+  'errors.chatBusy': 'Maestri está ocupado con este chat ahora. Inténtalo de nuevo en un momento.',
   'errors.connectTimeout': 'Se agotó el tiempo al conectar con Maestri.',
   'errors.emptyMessage': 'El mensaje está vacío.',
   'errors.forbidden':
@@ -45,6 +43,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.rateLimitedInstant': 'Demasiados intentos. Vuelve a intentarlo en un momento.',
   'errors.requestTimeout': 'Se agotó el tiempo al comunicarse con Maestri.',
   'errors.responseTooLarge': 'La respuesta de Maestri es demasiado grande.',
+  'errors.socketHandshakeFailed': 'Maestri rechazó la conexión en vivo.',
   'errors.terminalNotRunning': 'Ese terminal no está ejecutando en Maestri.',
   'errors.timeout': 'Maestri tardó demasiado en responder. Inténtalo de nuevo.',
   'errors.unauthorized':
@@ -53,23 +52,6 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.unreachable': 'No se pudo contactar con Maestri en {host}:{port}.',
   'errors.unsupportedProtocol': 'Versión del protocolo de Maestri no compatible.',
   'general.openInMaestri': 'Abrir en Maestri',
-  'panel.footer.hint':
-    '{shortcut}+Enter envía · el fragmento va en un bloque de código debajo del mensaje',
-  'panel.message.placeholder': '¿Qué debe hacer el agente? ({shortcut}+Enter envía)',
-  'panel.notice.dismiss': 'Descartar aviso',
-  'panel.notice.noSelection': 'Selecciona primero un fragmento en el editor.',
-  'panel.notice.sendFailed': 'No se pudo enviar a {name}.',
-  'panel.notice.sent': 'Enviado a {name}.',
-  'panel.references.add': '+ Añadir selección actual',
-  'panel.references.empty':
-    'No hay fragmentos. Selecciona código en el editor y usa “Añadir selección actual”.',
-  'panel.references.remove': 'Quitar fragmento',
-  'panel.section.message': 'MENSAJE',
-  'panel.section.references': 'ADJUNTOS',
-  'panel.section.target': 'PARA',
-  'panel.target.change': 'Cambiar ▾',
-  'panel.target.empty': 'Elegir agente…',
-  'panel.title': 'Mensaje para Maestri',
   'pairing.code.invalid': 'El código tiene 6 dígitos.',
   'pairing.code.prompt':
     'Introduce el código de 6 dígitos de la pestaña Emparejamiento (válido 5 minutos).',

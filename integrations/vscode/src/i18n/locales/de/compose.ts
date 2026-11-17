@@ -14,9 +14,6 @@ export const compose: Record<keyof typeof source, string> = {
   'compose.message.title': 'Nachricht an {name}',
   'compose.pickAgent.title': 'Welcher Agent?',
   'compose.prompt.heading': 'Referenz',
-  'compose.send.pickAgent': 'Agent wählen und senden',
-  'compose.send.sending': 'Sende…',
-  'compose.send.toAgent': 'An {name} senden',
   'compose.thread.emptyMessage': 'Schreibe die Nachricht vor dem Senden.',
   'compose.thread.label': 'Maestri · {header} → {agent}',
   'compose.thread.labelNoAgent':
@@ -27,6 +24,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.agentNotWaiting': 'Dieser Agent wartet nicht auf eine Antwort.',
   'errors.connectFailed':
     'Verbindung zu Maestri unter {host}:{port} fehlgeschlagen. Prüfe, ob Maestri geöffnet und Wire aktiv ist.',
+  'errors.chatBusy': 'Maestri ist gerade mit diesem Chat beschäftigt. Versuch es gleich noch einmal.',
   'errors.connectTimeout': 'Zeitüberschreitung beim Verbinden mit Maestri.',
   'errors.emptyMessage': 'Die Nachricht ist leer.',
   'errors.forbidden': 'Dieses Gerät darf das nicht (als Gast gekoppelt?).',
@@ -47,6 +45,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.rateLimitedInstant': 'Zu viele Versuche. Versuche es gleich noch einmal.',
   'errors.requestTimeout': 'Zeitüberschreitung bei der Kommunikation mit Maestri.',
   'errors.responseTooLarge': 'Die Antwort von Maestri ist zu groß.',
+  'errors.socketHandshakeFailed': 'Maestri hat die Live-Verbindung abgelehnt.',
   'errors.terminalNotRunning': 'Dieses Terminal läuft nicht in Maestri.',
   'errors.timeout':
     'Maestri hat zu lange gebraucht, um zu antworten. Versuche es erneut.',
@@ -56,23 +55,6 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.unreachable': 'Maestri ist unter {host}:{port} nicht erreichbar.',
   'errors.unsupportedProtocol': 'Nicht unterstützte Maestri-Protokollversion.',
   'general.openInMaestri': 'In Maestri öffnen',
-  'panel.footer.hint':
-    '{shortcut}+Enter sendet · der Ausschnitt erscheint in einem Codeblock unter der Nachricht',
-  'panel.message.placeholder': 'Was soll der Agent tun? ({shortcut}+Enter sendet)',
-  'panel.notice.dismiss': 'Hinweis schließen',
-  'panel.notice.noSelection': 'Wähle zuerst einen Ausschnitt im Editor aus.',
-  'panel.notice.sendFailed': 'Konnte nicht an {name} gesendet werden.',
-  'panel.notice.sent': 'An {name} gesendet.',
-  'panel.references.add': '+ Aktuelle Auswahl hinzufügen',
-  'panel.references.empty':
-    'Keine Ausschnitte. Wähle Code im Editor aus und nutze „Aktuelle Auswahl hinzufügen“.',
-  'panel.references.remove': 'Ausschnitt entfernen',
-  'panel.section.message': 'NACHRICHT',
-  'panel.section.references': 'ANGEHÄNGT',
-  'panel.section.target': 'AN',
-  'panel.target.change': 'Ändern ▾',
-  'panel.target.empty': 'Agent wählen…',
-  'panel.title': 'Nachricht an Maestri',
   'pairing.code.invalid': 'Der Code besteht aus 6 Ziffern.',
   'pairing.code.prompt':
     'Gib den 6-stelligen Code aus dem Kopplungs-Tab ein (5 Minuten gültig).',

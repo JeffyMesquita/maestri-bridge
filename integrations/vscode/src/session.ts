@@ -8,7 +8,7 @@ const PAIRED_CONTEXT_KEY = 'maestriBridge.paired';
 
 export class MaestriSession implements vscode.Disposable {
   private client: WireClient | undefined;
-  private credentials: Credentials | undefined;
+  private currentCredentials: Credentials | undefined;
   private credentialsKnown = false;
   private readonly listener: vscode.Disposable;
 
@@ -45,6 +45,10 @@ export class MaestriSession implements vscode.Disposable {
     return this.clientFor(credentials);
   }
 
+  async credentials(): Promise<Credentials | undefined> {
+    return this.loadCredentials();
+  }
+
   dispose(): void {
     this.listener.dispose();
     this.invalidate();
@@ -52,10 +56,10 @@ export class MaestriSession implements vscode.Disposable {
 
   private async loadCredentials(): Promise<Credentials | undefined> {
     if (!this.credentialsKnown) {
-      this.credentials = await this.store.get();
+      this.currentCredentials = await this.store.get();
       this.credentialsKnown = true;
     }
-    return this.credentials;
+    return this.currentCredentials;
   }
 
   private clientFor(credentials: Credentials): WireClient {
@@ -67,7 +71,7 @@ export class MaestriSession implements vscode.Disposable {
 
   private invalidate(): void {
     this.client = undefined;
-    this.credentials = undefined;
+    this.currentCredentials = undefined;
     this.credentialsKnown = false;
   }
 

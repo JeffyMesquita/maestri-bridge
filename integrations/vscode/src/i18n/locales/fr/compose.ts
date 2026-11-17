@@ -14,9 +14,6 @@ export const compose: Record<keyof typeof source, string> = {
   'compose.message.title': 'Message pour {name}',
   'compose.pickAgent.title': 'Quel agent ?',
   'compose.prompt.heading': 'Référence',
-  'compose.send.pickAgent': 'Choisir l’agent et envoyer',
-  'compose.send.sending': 'Envoi…',
-  'compose.send.toAgent': 'Envoyer à {name}',
   'compose.thread.emptyMessage': 'Écrivez le message avant d’envoyer.',
   'compose.thread.label': 'Maestri · {header} → {agent}',
   'compose.thread.labelNoAgent':
@@ -27,6 +24,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.agentNotWaiting': 'Cet agent n’attend pas de réponse.',
   'errors.connectFailed':
     'Impossible de se connecter à Maestri sur {host}:{port}. Vérifiez que Maestri est ouvert et que Wire est actif.',
+  'errors.chatBusy': 'Maestri est occupé avec ce chat. Réessayez dans un instant.',
   'errors.connectTimeout': 'Délai dépassé lors de la connexion à Maestri.',
   'errors.emptyMessage': 'Le message est vide.',
   'errors.forbidden':
@@ -47,6 +45,7 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.rateLimitedInstant': 'Trop de tentatives. Réessayez dans un instant.',
   'errors.requestTimeout': 'Délai dépassé lors de l’échange avec Maestri.',
   'errors.responseTooLarge': 'La réponse de Maestri est trop volumineuse.',
+  'errors.socketHandshakeFailed': 'Maestri a refusé la connexion en direct.',
   'errors.terminalNotRunning': 'Ce terminal n’est pas en cours dans Maestri.',
   'errors.timeout': 'Maestri a mis trop de temps à répondre. Réessayez.',
   'errors.unauthorized':
@@ -55,24 +54,6 @@ export const compose: Record<keyof typeof source, string> = {
   'errors.unreachable': 'Impossible de joindre Maestri sur {host}:{port}.',
   'errors.unsupportedProtocol': 'Version du protocole Maestri non prise en charge.',
   'general.openInMaestri': 'Ouvrir dans Maestri',
-  'panel.footer.hint':
-    '{shortcut}+Entrée envoie · l’extrait est placé dans un bloc de code sous le message',
-  'panel.message.placeholder':
-    'Que doit faire l’agent ? ({shortcut}+Entrée envoie)',
-  'panel.notice.dismiss': 'Ignorer l’avis',
-  'panel.notice.noSelection': 'Sélectionnez d’abord un extrait dans l’éditeur.',
-  'panel.notice.sendFailed': 'Impossible d’envoyer à {name}.',
-  'panel.notice.sent': 'Envoyé à {name}.',
-  'panel.references.add': '+ Ajouter la sélection actuelle',
-  'panel.references.empty':
-    'Aucun extrait. Sélectionnez du code dans l’éditeur et utilisez « Ajouter la sélection actuelle ».',
-  'panel.references.remove': 'Supprimer l’extrait',
-  'panel.section.message': 'MESSAGE',
-  'panel.section.references': 'PIÈCES JOINTES',
-  'panel.section.target': 'À',
-  'panel.target.change': 'Changer ▾',
-  'panel.target.empty': 'Choisir l’agent…',
-  'panel.title': 'Message à Maestri',
   'pairing.code.invalid': 'Le code comporte 6 chiffres.',
   'pairing.code.prompt':
     'Saisissez le code à 6 chiffres de l’onglet Appairage (valable 5 minutes).',

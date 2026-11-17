@@ -13,3 +13,7 @@ export * from './preview.ts';
 export * from './floors.ts';
 export * from './show-link.ts';
 export * from './locate.ts';
+export * from './chat.ts';
+export * from './ws.ts';
+export * from './chat-stream.ts';
+export * from './saved-prompts.ts';
