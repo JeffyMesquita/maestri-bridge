@@ -47,6 +47,10 @@ stateDiagram-v2
 
 ### Commands / Comandos
 
+Portable interaction overview / Visão estática do fluxo:
+
+![Follow interaction / Fluxo de acompanhamento](images/agent-follow-flow.svg)
+
 | Command ID | English | PT-BR |
 | --- | --- | --- |
 | `maestriBridge.follow.start` | Follow agent | Acompanhar agente |
@@ -78,6 +82,8 @@ The colored card uses the existing Chat webview and theme colors. Public `Status
 | Manual Extension Development Host | Follow, inline note, card Pause/Resume/Stop, persistent indicators and file decoration verified |
 
 These counts are executed tests, not code-coverage percentages or latency measurements. Automated editor tests use mocked VS Code APIs; the manual Development Host check supplies the separate real-editor evidence.
+
+![Executed tests / Testes executados](images/agent-follow-tests.svg)
 
 Reproduce from the repository root after installing the existing lockfile dependencies:
 
