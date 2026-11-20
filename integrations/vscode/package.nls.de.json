@@ -1,4 +1,5 @@
 {
+  "config.follow.previewPosition.description": "Zeigt verfolgten Code in der aktuellen oder in einer danebenliegenden Editorgruppe an. Die Gruppe bleibt während der Sitzung fest.",
   "extension.description": "Sende Codeausschnitte und Nachrichten an deine Maestri-Agenten.",
   "command.compose": "An einen Agenten schreiben (im Editor)",
   "command.openComposer": "Chat öffnen",

@@ -1,4 +1,5 @@
 {
+  "config.follow.previewPosition.description": "追跡するコードを現在のエディターグループまたは隣のグループに表示します。セッション中はグループを固定します。",
   "extension.description": "コードの一部とメッセージを Maestri のエージェントに送ります。",
   "command.compose": "エージェントに書く（エディター内）",
   "command.openComposer": "チャットを開く",

@@ -471,6 +471,13 @@
           "type": "boolean",
           "default": true,
           "description": "%config.agentLinks.description%"
+        },
+        "maestriBridge.follow.previewPosition": {
+          "type": "string",
+          "enum": ["currentGroup", "beside"],
+          "default": "currentGroup",
+          "scope": "window",
+          "description": "%config.follow.previewPosition.description%"
         }
       }
     },

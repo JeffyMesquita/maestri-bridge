@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { checkActivityTarget } from '@maestri-bridge/core';
 import { resolveFollowFile } from './follow-file.ts';
+import { sameFollowLocation } from './follow-state.ts';
 import type { FollowActivity } from './follow-state.ts';
 import { t } from './i18n/index.ts';
 
@@ -10,9 +11,12 @@ export class FollowEditor implements vscode.Disposable {
     backgroundColor: new vscode.ThemeColor('editor.rangeHighlightBackground'),
     border: '1px solid',
     borderColor: new vscode.ThemeColor('focusBorder'),
+    overviewRulerColor: new vscode.ThemeColor('focusBorder'),
+    overviewRulerLane: vscode.OverviewRulerLane.Center,
   });
   private readonly notes = vscode.comments.createCommentController('maestriBridgeFollow', 'Maestri');
   private thread: vscode.CommentThread | undefined;
+  private threadActivity: FollowActivity | undefined;
   private editor: vscode.TextEditor | undefined;
   private ownNavigation: string | undefined;
   private column: vscode.ViewColumn | undefined;
@@ -21,8 +25,9 @@ export class FollowEditor implements vscode.Disposable {
     return this.editor?.document?.uri;
   }
 
-  begin(): void {
-    this.column = vscode.window.activeTextEditor?.viewColumn;
+  begin(beside = false): void {
+    const active = vscode.window.activeTextEditor?.viewColumn;
+    this.column = beside && active !== undefined ? vscode.ViewColumn.Beside : active;
   }
 
   isOwnNavigation(uri: vscode.Uri): boolean {
@@ -56,13 +61,15 @@ export class FollowEditor implements vscode.Disposable {
       if (!current() || document.isDirty || !checkActivityTarget(event, {
         text: document.getText(), lineCount: document.lineCount, isDirty: document.isDirty,
       }).ok) return false;
-      this.clear();
+      if (this.editor !== editor) this.editor?.setDecorations(this.highlight, []);
       this.editor = editor;
+      this.column = editor.viewColumn ?? this.column;
       editor.setDecorations(this.highlight, [range]);
-      if (!editor.visibleRanges.some((visible) => visible.contains(range))) {
-        editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+      if (this.threadActivity && (!sameFollowLocation(this.threadActivity, event) ||
+        (event.kind === 'decision' && this.threadActivity.message !== event.message))) {
+        this.clearThread();
       }
-      if (event.kind === 'decision' && event.message) {
+      if (!this.thread && event.kind === 'decision' && event.message) {
         this.thread = this.notes.createCommentThread(uri, range, [{
           body: new vscode.MarkdownString().appendText(event.message),
           mode: vscode.CommentMode.Preview,
@@ -72,6 +79,10 @@ export class FollowEditor implements vscode.Disposable {
         this.thread.label = t('follow.decision', { name });
         this.thread.canReply = true;
         this.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+        this.threadActivity = event;
+      }
+      if (!editor.visibleRanges.some((visible) => visible.contains(range))) {
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
       }
       return true;
     } finally {
@@ -82,8 +93,13 @@ export class FollowEditor implements vscode.Disposable {
   clear(): void {
     this.editor?.setDecorations(this.highlight, []);
     this.editor = undefined;
+    this.clearThread();
+  }
+
+  private clearThread(): void {
     this.thread?.dispose();
     this.thread = undefined;
+    this.threadActivity = undefined;
   }
 
   dispose(): void {

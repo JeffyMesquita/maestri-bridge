@@ -1,4 +1,5 @@
 {
+  "config.follow.previewPosition.description": "Affiche le code suivi dans le groupe actuel ou dans un groupe adjacent. Le groupe reste fixe pendant la session.",
   "extension.description": "Envoyez des extraits de code et des messages à vos agents Maestri.",
   "command.compose": "Écrire à un agent (dans l'éditeur)",
   "command.openComposer": "Ouvrir le chat",

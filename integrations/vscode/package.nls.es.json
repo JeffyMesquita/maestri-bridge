@@ -1,4 +1,5 @@
 {
+  "config.follow.previewPosition.description": "Muestra el código seguido en el grupo actual o en uno al lado. El grupo se mantiene fijo durante la sesión.",
   "extension.description": "Envía fragmentos de código y mensajes a tus agentes de Maestri.",
   "command.compose": "Escribir a un agente (en el editor)",
   "command.openComposer": "Abrir chat",

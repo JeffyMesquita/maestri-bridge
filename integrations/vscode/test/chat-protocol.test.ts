@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { MAX_PASTED_FILE_BYTES, parseChatFromWebview } from '../src/chat-protocol.ts';
 
 describe('parseChatFromWebview', () => {
-  it('limita os controles de acompanhamento a pausar, retomar e parar', () => {
-    for (const action of ['pause', 'resume', 'stop']) {
+  it('limita os controles de acompanhamento a iniciar, pausar, retomar e parar', () => {
+    for (const action of ['start', 'pause', 'resume', 'stop']) {
       expect(parseChatFromWebview({ type: 'followAction', action })).toEqual({ type: 'followAction', action });
     }
     for (const action of ['approve', 'reject', 'executeCommand', '', undefined, 1]) {

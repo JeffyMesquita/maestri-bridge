@@ -1,4 +1,5 @@
 {
+  "config.follow.previewPosition.description": "在当前编辑器组或旁边的编辑器组中显示跟随的代码。编辑器组在会话期间保持固定。",
   "extension.description": "将代码片段和消息发送给你的 Maestri 代理。",
   "command.compose": "给代理写消息（在编辑器中）",
   "command.openComposer": "打开聊天",

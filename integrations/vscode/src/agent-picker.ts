@@ -58,6 +58,7 @@ export async function pickAgent(options: {
   references: readonly CodeReference[];
   filePath?: string;
   title?: string;
+  placeholder?: string;
   selectedWorkspaceId?: string;
 }): Promise<PickedAgent | undefined> {
   const { session, client, memory, references } = options;
@@ -115,7 +116,7 @@ export async function pickAgent(options: {
         ? t('agents.picker.placeholderWithReferences', {
             summary: summarizeReferences(references),
           })
-        : t('agents.picker.placeholder');
+        : (options.placeholder ?? t('agents.picker.placeholder'));
 
     const groups = groupTerminalsByFloor(snapshot);
     const showFloors = snapshot.floors.length > 1;

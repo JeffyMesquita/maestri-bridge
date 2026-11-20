@@ -254,7 +254,7 @@ window.addEventListener('message', (event: MessageEvent<unknown>) => {
   const message = data as ChatToWebview;
   switch (message.type) {
     case 'followState':
-      followBanner.update(message.follow);
+      followBanner.update(message.startLabel, message.follow);
       break;
     case 'state':
       renderState(message.state);

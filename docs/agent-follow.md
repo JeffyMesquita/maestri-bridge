@@ -8,17 +8,19 @@ Follow a selected agent's cooperative code activity inside VS Code. The editor r
 
 ### Start and stay in control
 
-1. Open a trusted local project and connect Maestri Bridge to Maestri through its existing pairing flow.
-2. Click the **target icon** beside an agent or in the **Agents/Chat** header, or run **Maestri: Follow agent**.
+1. Open a trusted local project and connect Maestri Bridge to Maestri through its existing pairing flow. In an empty editor window, **Follow agent** offers **Open project**.
+2. Choose **Follow agent** in the Chat card, use the **target icon** beside an agent or in the **Agents/Chat** header, or run **Maestri: Follow agent**. Chat and Follow have independent agent choices.
 3. Choose an agent and, for a multi-root window, the local project root. The extension sends that agent the session-specific helper instructions.
-4. After saving code, the agent publishes activity with the provided helper. The extension checks the content revision before revealing the range or displaying a note.
+4. After a meaningful saved change, the agent publishes a `decision` with the provided helper, explaining what the highlighted code does and why it changed. A `focus` event shows a location for navigation. The extension checks the saved revision before revealing the range or displaying the note.
 5. Use **Pause**, **Resume** or **Stop** in the colored Chat card, view header or Command Palette. Clicking the follow status also toggles pause/resume.
 
-The agent's name remains visible in the persistent Agents summary, its tree row, the Chat header/card and the status bar. A stable agent color ties these indicators to the file decoration in the tab/Explorer, subject to the editor's decoration settings. The existing Git badge remains available.
+The Chat card shows the followed agent, Maestri workspace, local root, current file and latest verified note. **Change followed agent** opens the chooser again. Canceling keeps the current session. The latest note stays in the card with its original file and line numbers. The editor centers a verified range that is off-screen and keeps the preview group fixed. To open the preview beside your editor, set `maestriBridge.follow.previewPosition` to `beside` before starting the session.
 
-Navigating, editing or leaving the window pauses following. While paused, only the latest code location is retained. Resume rechecks it and does not replay old decision notes. Stop removes the follow indicators, highlight and note. Following is off after an extension restart.
+Navigating, editing or leaving the window pauses following. While paused, the session retains the latest location and its explanation if available. **Resume** rechecks the saved revision before showing them. **Stop** clears the highlight and notes. Following is off after an extension restart.
 
 ### 🖼️ Real VS Code evidence
+
+The images below record the original Development Host validation.
 
 ![Follow enabled, with a persistent agent indicator and an inline decision](images/agent-follow-active.png)
 
@@ -71,6 +73,8 @@ The colored card uses the existing Chat webview and theme colors. Public `Status
 
 ### ✅ Validation
 
+These results refer to the original Development Host validation shown above.
+
 | Check | Result |
 | --- | ---: |
 | Core Vitest suite | 266 passed |
@@ -102,15 +106,15 @@ Acompanhe a atividade cooperativa de código de um agente no VS Code. O editor r
 
 ### Como usar
 
-1. Abra um projeto local confiável e conecte a Bridge pelo pareamento existente.
-2. Clique no **ícone de alvo** da linha do agente ou do cabeçalho de **Agentes/Chat**. Também há **Maestri: Acompanhar agente** na paleta.
+1. Abra um projeto local confiável e conecte a Bridge pelo pareamento existente. Em uma janela vazia, **Acompanhar agente** oferece a ação **Abrir projeto**.
+2. Use **Acompanhar agente** no cartão do Chat, o **ícone de alvo** da linha do agente ou do cabeçalho de **Agentes/Chat**, ou **Maestri: Acompanhar agente** na paleta. Chat e acompanhamento têm seleções independentes.
 3. Escolha o agente e, em uma janela com várias pastas, a raiz local. A extensão envia ao agente as instruções do helper para aquela sessão.
-4. Após gravar o código, o agente publica a atividade. A revisão do conteúdo é conferida antes de revelar o trecho ou apresentar a nota.
+4. Após salvar uma alteração significativa, o agente usa `decision` para explicar o que o trecho faz e por que mudou. O evento `focus` indica uma localização para navegação. A extensão confere a revisão salva antes de revelar o trecho ou apresentar a nota.
 5. Use **Pausar**, **Retomar** e **Parar** no cartão colorido, no cabeçalho ou na paleta. O indicador da barra também alterna pausa/retomada.
 
-O nome do agente aparece no resumo persistente de Agentes, na linha dele, no cabeçalho/cartão do Chat e na barra de status. A mesma cor estável conecta esses pontos à marca do arquivo na aba/Explorer, conforme as configurações de decorations. A indicação Git continua disponível.
+O cartão mostra agente, workspace Maestri, raiz local, arquivo em foco e a última nota validada. **Trocar agente acompanhado** abre o seletor novamente. Cancelar preserva a sessão atual. A última nota permanece no cartão com o arquivo e as linhas originais. O editor centraliza o trecho validado que está fora da área visível e mantém o grupo de prévia fixo. Para abrir a prévia ao lado, defina `maestriBridge.follow.previewPosition` como `beside` antes de iniciar a sessão.
 
-Navegar, editar ou sair da janela pausa o acompanhamento. A pausa retém apenas a última localização; retomar confere o conteúdo novamente e não reproduz notas antigas. Parar remove indicadores, destaque e nota. Reiniciar a extensão não reativa o acompanhamento automaticamente.
+Navegar, editar ou sair da janela pausa o acompanhamento. Durante a pausa, a sessão guarda a última localização e a explicação correspondente, se houver. **Retomar** confere a revisão salva antes de exibir o trecho e a nota. **Parar** limpa o destaque e as notas. O acompanhamento começa desligado após reiniciar a extensão.
 
 ### Limites importantes
 
@@ -122,7 +126,7 @@ O fundo colorido fica no cartão do Chat. A API nativa da barra de status limita
 
 ### Evidência e testes
 
-As imagens acima vêm da extensão real no Development Host. O GIF reúne quatro screenshots reais — ativo com nota, pausado, retomado e parado — e não representa uma gravação contínua nem um protótipo HTML.
+As imagens registram a validação original no Development Host. O GIF reúne quatro screenshots reais com os estados ativo com nota, pausado, retomado e parado.
 
 Foram executados **536 testes**: 266 do core, 254 da camada VS Code e 16 do emissor. Typechecks e builds passaram. Os testes automatizados do editor usam mocks; a validação manual comprovou o fluxo no VS Code, incluindo os botões do próprio cartão. Os números não representam cobertura percentual ou desempenho medido.
 

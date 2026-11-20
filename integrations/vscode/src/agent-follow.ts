@@ -7,7 +7,7 @@ import { deliver } from './delivery.ts';
 import { referencesForRange } from './editor-references.ts';
 import { FollowEditor } from './follow-editor.ts';
 import { followAccent, followPresentation } from './follow-presentation.ts';
-import { pauseFollow, receiveFollowActivity, resumeFollow, startFollow } from './follow-state.ts';
+import { enqueueFollowActivity, pauseFollow, receiveFollowActivity, resumeFollow, startFollow } from './follow-state.ts';
 import type { FollowActivity, FollowState, FollowSummary } from './follow-state.ts';
 import { showFlowError } from './flow-errors.ts';
 import { t } from './i18n/index.ts';
@@ -25,14 +25,21 @@ export class AgentFollow implements vscode.Disposable {
   private target: AgentTarget | undefined;
   private root: vscode.Uri | undefined;
   private generation = 0;
+  private startRequest = 0;
   private timer: NodeJS.Timeout | undefined;
-  private queued: FollowActivity | undefined;
+  private queued: FollowActivity[] = [];
+  private rendering = false;
+  private file: string | undefined;
+  private note: FollowSummary['note'];
   private disposed = false;
   private decoratedUri: vscode.Uri | undefined;
 
   get summary(): FollowSummary | undefined {
     return this.state && this.target
-      ? { agentId: this.target.terminalId, name: this.target.terminalName, phase: this.state.phase }
+      ? {
+        agentId: this.target.terminalId, name: this.target.terminalName, phase: this.state.phase,
+        workspaceName: this.target.workspaceName, rootPath: this.root?.fsPath, file: this.file, note: this.note,
+      }
       : undefined;
   }
 
@@ -101,14 +108,27 @@ export class AgentFollow implements vscode.Disposable {
       this.update();
       return;
     }
-    this.queued = outcome.activity;
-    if (this.timer !== undefined) return;
+    this.queueRender(outcome.activity);
+  }
+
+  private queueRender(event: FollowActivity, delay = 200): void {
+    this.queued = enqueueFollowActivity(this.queued, event);
+    if (this.timer !== undefined || this.rendering) return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      const event = this.queued;
-      this.queued = undefined;
-      if (event) void this.render(event);
-    }, 200);
+      void this.renderQueued();
+    }, delay);
+  }
+
+  private async renderQueued(): Promise<void> {
+    this.rendering = true;
+    try {
+      for (let event = this.queued.shift(); event; event = this.queued.shift()) {
+        await this.render(event);
+      }
+    } finally {
+      this.rendering = false;
+    }
   }
 
   private enabled(): boolean {
@@ -117,19 +137,33 @@ export class AgentFollow implements vscode.Disposable {
 
   private async start(node: unknown): Promise<void> {
     try {
-      if (!this.enabled() || !vscode.workspace.isTrusted) {
+      if (!this.enabled()) {
         void vscode.window.showWarningMessage(t('follow.unavailable'));
         return;
       }
+      const request = ++this.startRequest;
       const folders = (vscode.workspace.workspaceFolders ?? []).filter((folder) => folder.uri.scheme === 'file');
       if (folders.length === 0) {
-        void vscode.window.showWarningMessage(t('follow.openFolder'));
+        const action = t('follow.openProject');
+        const selected = await vscode.window.showWarningMessage(t('follow.openFolder'), action);
+        if (selected === action && request === this.startRequest && !this.disposed) {
+          const [folder] = await vscode.window.showOpenDialog({
+            canSelectFiles: false, canSelectFolders: true, canSelectMany: false, openLabel: action,
+          }) ?? [];
+          if (folder?.scheme === 'file' && request === this.startRequest && !this.disposed) {
+            await vscode.commands.executeCommand('vscode.openFolder', folder, { forceNewWindow: true });
+          }
+        }
         return;
       }
-      this.stop();
-      const epoch = ++this.generation;
+      if (!vscode.workspace.isTrusted) {
+        void vscode.window.showWarningMessage(t('follow.unavailable'));
+        return;
+      }
+      const current = (): boolean => request === this.startRequest && !this.disposed &&
+        this.enabled() && vscode.workspace.isTrusted;
       const client = await this.services.session.ensureClient();
-      if (!client || epoch !== this.generation || this.disposed) return;
+      if (!client || !current()) return;
       let target: AgentTarget | undefined;
       if (typeof node === 'object' && node !== null && 'terminal' in node) {
         const value = node as { terminal?: { id?: unknown } };
@@ -142,29 +176,36 @@ export class AgentFollow implements vscode.Disposable {
             floorId: terminal.floorId, floorName: terminal.floorName,
           };
         }
+        if (!target) {
+          void vscode.window.showWarningMessage(t('follow.agentUnavailable'));
+          return;
+        }
       }
       if (!target) {
         const picked = await pickAgent({
           session: this.services.session, client, memory: this.services.memory,
-          references: [], title: t('follow.title'),
+          references: [], title: t('follow.title'), placeholder: t('follow.pickAgent'),
           selectedWorkspaceId: this.monitor.workspaceId,
         });
-        if (!picked || epoch !== this.generation || this.disposed) return;
+        if (!picked || !current()) return;
         target = toAgentTarget(picked);
       }
       const folder = folders.length === 1 ? folders[0] : (await vscode.window.showQuickPick(
         folders.map((item) => ({ label: item.name, description: item.uri.fsPath, folder: item })),
-        { title: t('follow.chooseRoot') },
+        { title: t('follow.chooseRoot'), placeHolder: `${target.terminalName} · ${target.workspaceName}` },
       ))?.folder;
-      if (!folder || epoch !== this.generation || this.disposed) return;
+      if (!folder || !current()) return;
       const snapshot = await client.getFeed(target.workspaceId, target.floorId);
-      if (epoch !== this.generation || !snapshot.terminals.some((item) => item.id === target.terminalId)) return;
+      if (!current()) return;
+      if (!snapshot.terminals.some((item) => item.id === target.terminalId)) {
+        void vscode.window.showWarningMessage(t('follow.agentUnavailable'));
+        return;
+      }
       const activityUri = await vscode.env.asExternalUri(vscode.Uri.parse(`${vscode.env.uriScheme}://maestri-bridge.maestri-bridge/activity`));
-      if (epoch !== this.generation || this.disposed) return;
+      if (!current() || !vscode.workspace.workspaceFolders?.some((item) => item.uri.toString() === folder.uri.toString())) return;
+      this.stop();
       this.monitor.setWorkspace(target.workspaceId, target.floorId);
-      this.cancelQueued();
-      this.editor.clear();
-      this.editor.begin();
+      this.editor.begin(vscode.workspace.getConfiguration('maestriBridge').get('follow.previewPosition') === 'beside');
       this.target = target;
       this.root = folder.uri;
       this.state = startFollow(randomUUID(), target.terminalId);
@@ -177,8 +218,8 @@ export class AgentFollow implements vscode.Disposable {
         `Helper: ${helper}`,
         `Editor executable: ${process.execPath}`,
         `URI base: ${activityUri.toString()}`,
-        'After saving a file, run node <helper> focus <relative POSIX path:start-end> --session <session> --agent <agent> --seq <increasing integer> --root <root> --editor-path <editor executable> --uri-base <URI base>. Quote each argument for your shell.',
-        'For an important decision use decision <file:start-end> <short explanation> instead of focus <file:start-end>. Finish with finish and the same options except file. Do not modify files merely to demonstrate this feature. Never publish secrets or private files. No watcher or background agent is required.',
+        'After each meaningful saved change, run node <helper> decision <relative POSIX path:start-end> <short explanation> --session <session> --agent <agent> --seq <increasing integer> --root <root> --editor-path <editor executable> --uri-base <URI base>. Quote each argument for your shell.',
+        'In one or two sentences explain what the highlighted code does and why you are changing it. Use the user’s language and describe the actual saved change. Use focus <file:start-end> for navigation alone. Send finish only when the task is complete, with the same options except file. Never publish secrets or private files.',
       ].join('\n');
       try {
         await client.sendPrompt(target.terminalId, instructions);
@@ -199,27 +240,33 @@ export class AgentFollow implements vscode.Disposable {
     this.update(message);
   }
 
-  private async resume(): Promise<void> {
+  private resume(): void {
     if (this.state?.phase !== 'paused' || !this.enabled()) return;
     const outcome = resumeFollow(this.state);
     this.state = outcome.state;
     this.update();
-    if (outcome.activity) await this.render(outcome.activity);
+    if (outcome.activity) this.queueRender(outcome.activity, 0);
   }
 
   private async render(event: FollowActivity): Promise<void> {
     if (this.state?.phase !== 'following' || !this.root || !this.target || !vscode.window.state.focused) return;
-    const epoch = ++this.generation;
+    const epoch = this.generation;
     const current = (): boolean => !this.disposed && epoch === this.generation &&
-      this.state?.phase === 'following' && this.state.sessionId === event.sessionId && this.enabled() &&
-      (this.queued === undefined || this.queued.seq <= event.seq);
+      this.state?.phase === 'following' && this.state.sessionId === event.sessionId && this.enabled();
     try {
       const shown = await this.editor.show(this.root, event, this.target.terminalName, current);
       if (!current()) return;
-      if (!shown) this.pause(t('follow.stale'));
-      else this.update(undefined, event.file);
+      if (!shown) {
+        if (this.queued.length === 0) this.pause(t('follow.stale'));
+        return;
+      }
+      this.file = event.file;
+      if (event.kind === 'decision' && event.file && event.range && event.message) {
+        this.note = { file: event.file, ...event.range, message: event.message };
+      }
+      this.update();
     } catch {
-      if (current()) this.pause(t('follow.stale'));
+      if (current() && this.queued.length === 0) this.pause(t('follow.stale'));
     }
   }
 
@@ -251,7 +298,7 @@ export class AgentFollow implements vscode.Disposable {
     } catch (error) { await showFlowError(this.services.session, error); }
   }
 
-  private update(message?: string, file?: string): void {
+  private update(message?: string): void {
     const phase = this.state?.phase;
     void vscode.commands.executeCommand('setContext', 'maestriBridge.following', phase === 'following');
     void vscode.commands.executeCommand('setContext', 'maestriBridge.followPaused', phase === 'paused');
@@ -262,7 +309,7 @@ export class AgentFollow implements vscode.Disposable {
     this.decoratedUri = this.editor.uri;
     if (!phase || !this.target) { this.status.hide(); return; }
     const icon = phase === 'paused' ? 'debug-pause' : phase === 'completed' ? 'check' : 'target';
-    this.status.text = `$(${icon}) ${message ?? t(phase === 'completed' ? 'follow.completed' : phase === 'paused' ? 'follow.paused' : 'follow.active', { name: this.target.terminalName })}${phase === 'paused' ? ` · ${this.target.terminalName}` : ''}${file ? ` · ${file}` : ''}`;
+    this.status.text = `$(${icon}) ${message ?? t(phase === 'completed' ? 'follow.completed' : phase === 'paused' ? 'follow.paused' : 'follow.active', { name: this.target.terminalName })}${phase === 'paused' ? ` · ${this.target.terminalName}` : ''}${this.file ? ` · ${this.file}` : ''}`;
     this.status.tooltip = `${t('follow.cooperative')}\n${this.root?.fsPath ?? ''}`;
     this.status.color = new vscode.ThemeColor(followAccent(this.target.terminalId).themeColor);
     this.status.command = phase === 'paused' ? 'maestriBridge.follow.resume' : phase === 'completed' ? 'maestriBridge.follow.start' : 'maestriBridge.follow.pause';
@@ -272,15 +319,18 @@ export class AgentFollow implements vscode.Disposable {
   private cancelQueued(): void {
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = undefined;
-    this.queued = undefined;
+    this.queued = [];
   }
 
   private stop(): void {
+    this.startRequest++;
     this.generation++;
     this.cancelQueued();
     this.state = undefined;
     this.target = undefined;
     this.root = undefined;
+    this.file = undefined;
+    this.note = undefined;
     this.editor.clear();
     this.update();
   }

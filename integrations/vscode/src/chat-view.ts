@@ -19,8 +19,10 @@ export function registerChatView(
 
   const sendFollowing = (webview: vscode.Webview): void => {
     const summary = follow.summary;
+    const note = summary?.note;
     const message: ChatToWebview = {
       type: 'followState',
+      startLabel: t(summary && summary.phase !== 'completed' ? 'follow.changeAgent' : 'follow.title'),
       follow: summary ? {
         label: followPresentation(summary).label,
         phase: summary.phase,
@@ -28,6 +30,14 @@ export function registerChatView(
         toggleLabel: t(summary.phase === 'paused' ? 'follow.resume' : 'follow.pause'),
         stopLabel: t('follow.stop'),
         tooltip: t('follow.cooperative'),
+        context: [summary.workspaceName, summary.rootPath].filter(Boolean).join(' · '),
+        file: summary.file,
+        waitingLabel: summary.phase === 'completed' ? '' : t('follow.waitingNote'),
+        note: note ? {
+          label: t('follow.latestNote'),
+          location: `${note.file}:${note.startLine}–${note.endLine}`,
+          message: note.message,
+        } : undefined,
       } : undefined,
     };
     void webview.postMessage(message);

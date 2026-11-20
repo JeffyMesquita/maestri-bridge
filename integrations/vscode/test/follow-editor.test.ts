@@ -23,7 +23,7 @@ vi.mock('vscode', () => ({
   Range: class { constructor(public startLine: number, public startColumn: number, public endLine: number, public endColumn: number) {} },
   MarkdownString: class { value = ''; appendText(value: string) { this.value = value; return this; } },
   Uri: { file: (path: string) => ({ fsPath: path, toString: () => path }) },
-  ViewColumn: { Active: -1 }, TextEditorRevealType: { InCenterIfOutsideViewport: 2 },
+  ViewColumn: { Active: -1, Beside: -2 }, TextEditorRevealType: { InCenter: 1 }, OverviewRulerLane: { Center: 2 },
   CommentMode: { Preview: 0 }, CommentThreadCollapsibleState: { Expanded: 1 },
 }));
 
@@ -49,6 +49,7 @@ describe('follow editor adapter', () => {
     expect(mock.show.mock.calls[0]?.[1]).toEqual({ preserveFocus: true, preview: true, viewColumn: 2 });
     expect(mock.decorate).toHaveBeenCalledOnce();
     expect(mock.reveal).toHaveBeenCalledOnce();
+    expect(mock.reveal.mock.calls[0]?.[1]).toBe(1);
     expect(mock.note).not.toHaveBeenCalled();
     editor.dispose();
   });
@@ -56,6 +57,14 @@ describe('follow editor adapter', () => {
     mock.show.mockResolvedValue({ visibleRanges: [{ contains: () => true }], setDecorations: mock.decorate, revealRange: mock.reveal });
     await new FollowEditor().show(root, activity, 'Senku', () => true);
     expect(mock.reveal).not.toHaveBeenCalled();
+  });
+  it('opens beside once and reuses the resulting group', async () => {
+    mock.show.mockResolvedValue({ viewColumn: 3, visibleRanges: [], setDecorations: mock.decorate, revealRange: mock.reveal });
+    const editor = new FollowEditor();
+    editor.begin(true);
+    await editor.show(root, activity, 'Senku', () => true);
+    await editor.show(root, { ...activity, seq: 2 }, 'Senku', () => true);
+    expect(mock.show.mock.calls.map(([, options]) => options.viewColumn)).toEqual([-2, 3]);
   });
   it.each(['dirty', 'stale', 'range'])('refuses %s documents without opening an editor', async (kind) => {
     mock.open.mockResolvedValue({ ...document(), isDirty: kind === 'dirty', getText: () => kind === 'stale' ? 'changed' : text });
@@ -76,7 +85,7 @@ describe('follow editor adapter', () => {
     expect(mock.decorate).not.toHaveBeenCalled();
     expect(mock.reveal).not.toHaveBeenCalled();
   });
-  it('keeps one decision thread and disposes it before the next update', async () => {
+  it('preserves the note for the same verified range and clears it when the range changes', async () => {
     const editor = new FollowEditor();
     await editor.show(root, { ...activity, kind: 'decision', message: 'Validate before saving' }, 'Senku', () => true);
     expect(mock.note).toHaveBeenCalledOnce();
@@ -84,6 +93,9 @@ describe('follow editor adapter', () => {
     const comments = mock.note.mock.calls[0]?.[2] as Array<{ body: { value: string } }>;
     expect(comments[0]?.body.value).toBe('Validate before saving');
     await editor.show(root, { ...activity, seq: 2 }, 'Senku', () => true);
+    expect(mock.note).toHaveBeenCalledOnce();
+    expect(mock.thread.dispose).not.toHaveBeenCalled();
+    await editor.show(root, { ...activity, seq: 3, range: { startLine: 2, endLine: 3 } }, 'Senku', () => true);
     expect(mock.thread.dispose).toHaveBeenCalledOnce();
   });
   it('does not access a missing or excluded physical file', async () => {
