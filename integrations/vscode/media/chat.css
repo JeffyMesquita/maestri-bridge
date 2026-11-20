@@ -1175,6 +1175,18 @@ a:focus-visible {
   font-size: 11px;
 }
 .follow-banner-actions button:hover { background: var(--vscode-toolbar-hoverBackground); }
+.follow-banner-actions .follow-banner-start {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: 28px;
+  padding-inline: 9px;
+}
+.follow-banner[data-phase="idle"] .follow-banner-start {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+.follow-banner[data-phase="idle"] .follow-banner-start:hover { background: var(--vscode-button-hoverBackground); }
 .follow-banner-actions button:focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 2px; }
 .follow-banner-note {
   display: grid;

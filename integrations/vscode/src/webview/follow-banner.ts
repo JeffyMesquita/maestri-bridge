@@ -25,6 +25,12 @@ export function createFollowBanner(send: (action: 'start' | 'pause' | 'resume' |
   actions.className = 'follow-banner-actions';
   const start = document.createElement('button');
   start.type = 'button';
+  start.className = 'follow-banner-start';
+  const startIcon = document.createElement('span');
+  startIcon.setAttribute('aria-hidden', 'true');
+  startIcon.textContent = '◎';
+  const startText = document.createElement('span');
+  start.append(startIcon, startText);
   const toggle = document.createElement('button');
   toggle.type = 'button';
   const stop = document.createElement('button');
@@ -59,7 +65,7 @@ export function createFollowBanner(send: (action: 'start' | 'pause' | 'resume' |
       context.hidden = !view?.context;
       file.textContent = view?.file ?? '';
       file.hidden = !view?.file;
-      start.textContent = startLabel;
+      startText.textContent = startLabel;
       toggle.hidden = !view || view.phase === 'completed';
       toggle.textContent = view?.toggleLabel ?? '';
       stop.hidden = !view;

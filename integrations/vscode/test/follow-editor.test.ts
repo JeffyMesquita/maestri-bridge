@@ -15,7 +15,7 @@ vi.mock('vscode', () => ({
   window: {
     createTextEditorDecorationType: () => ({ dispose: mock.dispose }),
     showTextDocument: mock.show,
-    activeTextEditor: { viewColumn: 2 },
+    activeTextEditor: { viewColumn: 2, document: { uri: { toString: () => '/project/previous.ts' } } },
   },
   workspace: { openTextDocument: mock.open },
   comments: { createCommentController: () => ({ createCommentThread: mock.note, dispose: mock.dispose }) },
@@ -65,6 +65,29 @@ describe('follow editor adapter', () => {
     await editor.show(root, activity, 'Senku', () => true);
     await editor.show(root, { ...activity, seq: 2 }, 'Senku', () => true);
     expect(mock.show.mock.calls.map(([, options]) => options.viewColumn)).toEqual([-2, 3]);
+  });
+  it('recognizes the old editor during navigation and the new viewport while it settles', async () => {
+    const editor = new FollowEditor();
+    const target = { toString: () => '/project/a.ts' } as Parameters<FollowEditor['isOwnNavigation']>[0];
+    const previous = { toString: () => '/project/previous.ts' } as typeof target;
+    const unrelated = { toString: () => '/project/other.ts' } as typeof target;
+    mock.show.mockImplementation(async () => {
+      expect(editor.isOwnNavigation(previous)).toBe(true);
+      expect(editor.isOwnNavigation(target)).toBe(true);
+      expect(editor.isOwnNavigation(unrelated)).toBe(false);
+      return { visibleRanges: [], setDecorations: mock.decorate, revealRange: mock.reveal };
+    });
+    vi.useFakeTimers();
+    try {
+      expect(await editor.show(root, activity, 'Senku', () => true)).toBe(true);
+      expect(editor.isOwnNavigation(previous)).toBe(false);
+      expect(editor.isOwnNavigation(target)).toBe(true);
+      vi.advanceTimersByTime(350);
+      expect(editor.isOwnNavigation(target)).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      editor.dispose();
+    }
   });
   it.each(['dirty', 'stale', 'range'])('refuses %s documents without opening an editor', async (kind) => {
     mock.open.mockResolvedValue({ ...document(), isDirty: kind === 'dirty', getText: () => kind === 'stale' ? 'changed' : text });

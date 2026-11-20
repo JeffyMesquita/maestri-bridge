@@ -60,6 +60,7 @@ export async function pickAgent(options: {
   title?: string;
   placeholder?: string;
   selectedWorkspaceId?: string;
+  includeTerminalPreview?: boolean;
 }): Promise<PickedAgent | undefined> {
   const { session, client, memory, references } = options;
   const baseTitle = options.title ?? t('agents.picker.title');
@@ -69,7 +70,7 @@ export async function pickAgent(options: {
   quickPick.placeholder = t('agents.picker.loading');
   quickPick.busy = true;
   quickPick.matchOnDescription = true;
-  quickPick.matchOnDetail = true;
+  quickPick.matchOnDetail = options.includeTerminalPreview !== false;
   quickPick.ignoreFocusOut = false;
   quickPick.show();
 
@@ -136,7 +137,7 @@ export async function pickAgent(options: {
         continue;
       }
       for (const terminal of rankTerminals(group.terminals, lastTerminalId)) {
-        const view = terminalItemView(terminal);
+        const view = terminalItemView(terminal, options.includeTerminalPreview);
         const item: PickItem = {
           label: view.label,
           description: showFloors

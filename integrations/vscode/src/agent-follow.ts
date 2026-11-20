@@ -75,10 +75,10 @@ export class AgentFollow implements vscode.Disposable {
           (event.kind !== vscode.TextEditorSelectionChangeKind.Command && !this.editor.isOwnNavigation(event.textEditor.document.uri))) this.pause();
       }),
       vscode.window.onDidChangeActiveTextEditor((editor) => {
-        if (!editor || !this.editor.isOwnNavigation(editor.document.uri)) this.pause();
+        if (editor && !this.editor.isOwnNavigation(editor.document.uri)) this.pause();
       }),
       vscode.window.onDidChangeTextEditorVisibleRanges((event) => {
-        if (!this.editor.isOwnNavigation(event.textEditor.document.uri)) this.pause();
+        if (event.textEditor === vscode.window.activeTextEditor && !this.editor.isOwnNavigation(event.textEditor.document.uri)) this.pause();
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {
         if (event.document.isDirty) this.pause();
@@ -186,6 +186,7 @@ export class AgentFollow implements vscode.Disposable {
           session: this.services.session, client, memory: this.services.memory,
           references: [], title: t('follow.title'), placeholder: t('follow.pickAgent'),
           selectedWorkspaceId: this.monitor.workspaceId,
+          includeTerminalPreview: false,
         });
         if (!picked || !current()) return;
         target = toAgentTarget(picked);

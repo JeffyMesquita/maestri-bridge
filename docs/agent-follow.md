@@ -30,6 +30,12 @@ The images below record the original Development Host validation.
 
 **Media note:** the GIF is a sequence of four real screenshots from the Extension Development Host: active with a note, paused, resumed and stopped. It is not continuous screen recording. The files and notes shown use a synthetic fixture; no HTML mockup is presented as extension evidence.
 
+#### Live Follow recording
+
+![Agent selection, two synthetic files and four contextual notes in the real Development Host](images/agent-follow-live.gif)
+
+This 38.5-second clip comes from one continuous Development Host recording. Idle intervals were cut and local details were masked. It shows the picker, two saved files, edits to both and the agent's explanations inline and in the Chat card. The three fixture tests passed separately.
+
 ### 🔄 Interaction flow
 
 ```mermaid
@@ -127,6 +133,8 @@ O fundo colorido fica no cartão do Chat. A API nativa da barra de status limita
 ### Evidência e testes
 
 As imagens registram a validação original no Development Host. O GIF reúne quatro screenshots reais com os estados ativo com nota, pausado, retomado e parado.
+
+O [novo recorte de 38,5 segundos](images/agent-follow-live.gif) veio de uma gravação contínua do Development Host. O recorte remove esperas e oculta detalhes locais. Ele mostra o seletor, a criação e a edição de dois arquivos sintéticos e as explicações do agente no trecho e no cartão. Os três testes da demonstração passaram em uma execução separada.
 
 Foram executados **536 testes**: 266 do core, 254 da camada VS Code e 16 do emissor. Typechecks e builds passaram. Os testes automatizados do editor usam mocks; a validação manual comprovou o fluxo no VS Code, incluindo os botões do próprio cartão. Os números não representam cobertura percentual ou desempenho medido.
 

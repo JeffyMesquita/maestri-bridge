@@ -5,6 +5,8 @@ import { sameFollowLocation } from './follow-state.ts';
 import type { FollowActivity } from './follow-state.ts';
 import { t } from './i18n/index.ts';
 
+const NAVIGATION_SETTLE_MS = 300;
+
 export class FollowEditor implements vscode.Disposable {
   private readonly highlight = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
@@ -18,7 +20,7 @@ export class FollowEditor implements vscode.Disposable {
   private thread: vscode.CommentThread | undefined;
   private threadActivity: FollowActivity | undefined;
   private editor: vscode.TextEditor | undefined;
-  private ownNavigation: string | undefined;
+  private ownNavigation: { target: string; previous?: string; settledAt?: number } | undefined;
   private column: vscode.ViewColumn | undefined;
 
   get uri(): vscode.Uri | undefined {
@@ -31,7 +33,13 @@ export class FollowEditor implements vscode.Disposable {
   }
 
   isOwnNavigation(uri: vscode.Uri): boolean {
-    return this.ownNavigation === uri.toString();
+    const navigation = this.ownNavigation;
+    if (!navigation) return false;
+    const path = uri.toString();
+    if (navigation.settledAt === undefined) {
+      return path === navigation.target || path === navigation.previous;
+    }
+    return path === navigation.target && Date.now() - navigation.settledAt < NAVIGATION_SETTLE_MS;
   }
 
   owns(thread: vscode.CommentThread): boolean {
@@ -53,7 +61,11 @@ export class FollowEditor implements vscode.Disposable {
       text: document.getText(), lineCount: document.lineCount, isDirty: document.isDirty,
     }).ok) return false;
     const range = new vscode.Range(event.range.startLine - 1, 0, event.range.endLine - 1, document.lineAt(event.range.endLine - 1).text.length);
-    this.ownNavigation = uri.toString();
+    const navigation: NonNullable<FollowEditor['ownNavigation']> = {
+      target: uri.toString(),
+      previous: vscode.window.activeTextEditor?.document.uri.toString(),
+    };
+    this.ownNavigation = navigation;
     try {
       const editor = await vscode.window.showTextDocument(document, {
         preserveFocus: true, preview: true, viewColumn: this.column ?? vscode.ViewColumn.Active,
@@ -86,11 +98,12 @@ export class FollowEditor implements vscode.Disposable {
       }
       return true;
     } finally {
-      this.ownNavigation = undefined;
+      navigation.settledAt = Date.now();
     }
   }
 
   clear(): void {
+    this.ownNavigation = undefined;
     this.editor?.setDecorations(this.highlight, []);
     this.editor = undefined;
     this.clearThread();
