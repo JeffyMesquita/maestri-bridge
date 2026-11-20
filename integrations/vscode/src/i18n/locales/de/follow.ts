@@ -1,0 +1,20 @@
+export const follow = {
+  "follow.title": "Agent folgen",
+  "follow.pause": "Verfolgung pausieren",
+  "follow.resume": "Verfolgung fortsetzen",
+  "follow.stop": "Verfolgung beenden",
+  "follow.reply": "Agent antworten",
+  "follow.active": "{name} folgen",
+  "follow.paused": "Pausiert · bei Bedarf fortsetzen",
+  "follow.completed": "Abgeschlossen · {name}",
+  "follow.decision": "Entscheidung · {name}",
+  "follow.cooperative": "Kooperative Aktivität; deklarierte Identität, Inhaltsrevision geprüft.",
+  "follow.unavailable": "Ein vertrauenswürdiges lokales Projekt öffnen und Agent-Links aktivieren.",
+  "follow.openFolder": "Zuerst einen lokalen Projektordner öffnen.",
+  "follow.chooseRoot": "Projektwurzel auswählen",
+  "follow.stale": "Datei geändert, nicht verfügbar oder ungespeichert. Verfolgung pausiert.",
+  "follow.instructions": "Kooperative Codeverfolgung ist aktiv. Aktuelle Aufgabe fortsetzen und nach dem Speichern mit diesem Helfer Aktivität veröffentlichen.",
+  "follow.badge": "Verfolgung aktiv",
+  "follow.pausedBadge": "Pausiert",
+  "follow.completedBadge": "Abgeschlossen"
+};

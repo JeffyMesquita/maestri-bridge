@@ -32,5 +32,10 @@
   "command.notes.close": "Close note",
   "command.notes.clearAll": "Clear agent notes",
   "command.notes.reply": "Reply",
-  "config.agentLinks.description": "Lets agents open files here, highlight code and leave notes you can reply to. Only files inside the open folders are opened."
+  "config.agentLinks.description": "Lets agents open files here, highlight code and leave notes you can reply to. Only files inside the open folders are opened.",
+  "command.follow.start": "Follow agent",
+  "command.follow.pause": "Pause following",
+  "command.follow.resume": "Resume following",
+  "command.follow.stop": "Stop following",
+  "command.follow.reply": "Reply to agent"
 }

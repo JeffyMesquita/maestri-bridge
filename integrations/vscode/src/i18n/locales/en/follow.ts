@@ -1,0 +1,20 @@
+export const follow = {
+  "follow.title": "Follow agent",
+  "follow.pause": "Pause following",
+  "follow.resume": "Resume following",
+  "follow.stop": "Stop following",
+  "follow.reply": "Reply to agent",
+  "follow.active": "Following {name}",
+  "follow.paused": "Paused · resume when ready",
+  "follow.completed": "Finished · {name}",
+  "follow.decision": "Decision · {name}",
+  "follow.cooperative": "Cooperative activity; reported agent identity, content revision checked.",
+  "follow.unavailable": "Open a trusted local project and enable agent links to follow an agent.",
+  "follow.openFolder": "Open a local project folder first.",
+  "follow.chooseRoot": "Choose the project root to follow",
+  "follow.stale": "File changed, is unavailable or has unsaved edits. Following paused.",
+  "follow.instructions": "The user enabled cooperative code following. Continue the current task; after writing code, publish activity using the helper below.",
+  "follow.badge": "Following",
+  "follow.pausedBadge": "Paused",
+  "follow.completedBadge": "Completed"
+};

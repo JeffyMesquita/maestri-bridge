@@ -1,0 +1,20 @@
+export const follow = {
+  "follow.title": "エージェントを追跡",
+  "follow.pause": "追跡を一時停止",
+  "follow.resume": "追跡を再開",
+  "follow.stop": "追跡を終了",
+  "follow.reply": "エージェントに返信",
+  "follow.active": "{name} を追跡中",
+  "follow.paused": "一時停止中 · 必要なときに再開",
+  "follow.completed": "完了 · {name}",
+  "follow.decision": "判断 · {name}",
+  "follow.cooperative": "協調アクティビティ。エージェントの申告 ID と内容のリビジョンを使用します。",
+  "follow.unavailable": "信頼されたローカルプロジェクトを開き、エージェントリンクを有効にしてください。",
+  "follow.openFolder": "ローカルプロジェクトのフォルダーを開いてください。",
+  "follow.chooseRoot": "追跡するプロジェクトのルートを選択",
+  "follow.stale": "ファイルの変更、未保存、または利用不可のため追跡を一時停止しました。",
+  "follow.instructions": "ユーザーが協調コード追跡を有効にしました。現在の作業を続け、コード保存後に以下のヘルパーでアクティビティを送信してください。",
+  "follow.badge": "追跡中",
+  "follow.pausedBadge": "一時停止",
+  "follow.completedBadge": "完了"
+};

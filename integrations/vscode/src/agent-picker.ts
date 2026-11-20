@@ -58,6 +58,7 @@ export async function pickAgent(options: {
   references: readonly CodeReference[];
   filePath?: string;
   title?: string;
+  selectedWorkspaceId?: string;
 }): Promise<PickedAgent | undefined> {
   const { session, client, memory, references } = options;
   const baseTitle = options.title ?? t('agents.picker.title');
@@ -216,6 +217,7 @@ export async function pickAgent(options: {
 
     const loaded = await loadFeed(chosen.workspace);
     if (loaded && !disposed) {
+      quickPick.value = '';
       quickPick.show();
     }
   };
@@ -272,6 +274,7 @@ export async function pickAgent(options: {
 
     const chosenWorkspace = chooseWorkspace({
       workspaces,
+      selectedWorkspaceId: options.selectedWorkspaceId,
       filePath: options.filePath,
       folderPath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       rememberedWorkspaceId: memory.lastWorkspaceId(),

@@ -1,0 +1,20 @@
+export const follow = {
+  "follow.title": "Acompanhar agente",
+  "follow.pause": "Pausar acompanhamento",
+  "follow.resume": "Retomar acompanhamento",
+  "follow.stop": "Parar acompanhamento",
+  "follow.reply": "Responder ao agente",
+  "follow.active": "Acompanhando {name}",
+  "follow.paused": "Pausado · retome quando quiser",
+  "follow.completed": "Concluído · {name}",
+  "follow.decision": "Decisão · {name}",
+  "follow.cooperative": "Atividade cooperativa; identidade declarada pelo agente, revisão do conteúdo conferida.",
+  "follow.unavailable": "Abra um projeto local confiável e habilite os links de agentes para acompanhar.",
+  "follow.openFolder": "Abra primeiro uma pasta de projeto local.",
+  "follow.chooseRoot": "Escolha a raiz do projeto a acompanhar",
+  "follow.stale": "O arquivo mudou, está indisponível ou tem edições não salvas. Acompanhamento pausado.",
+  "follow.instructions": "O usuário ativou o acompanhamento cooperativo de código. Continue a tarefa atual; após gravar código, publique atividade usando o helper abaixo.",
+  "follow.badge": "Acompanhando",
+  "follow.pausedBadge": "Pausado",
+  "follow.completedBadge": "Concluído"
+};

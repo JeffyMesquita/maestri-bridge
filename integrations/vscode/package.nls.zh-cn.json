@@ -32,5 +32,10 @@
   "command.notes.close": "关闭笔记",
   "command.notes.clearAll": "清除代理笔记",
   "command.notes.reply": "回复",
-  "config.agentLinks.description": "允许代理在此打开文件、突出显示代码并留下可供你回复的笔记。只会打开已打开文件夹中的文件。"
+  "config.agentLinks.description": "允许代理在此打开文件、突出显示代码并留下可供你回复的笔记。只会打开已打开文件夹中的文件。",
+  "command.follow.start": "跟随代理",
+  "command.follow.pause": "暂停跟随",
+  "command.follow.resume": "恢复跟随",
+  "command.follow.stop": "停止跟随",
+  "command.follow.reply": "回复代理"
 }

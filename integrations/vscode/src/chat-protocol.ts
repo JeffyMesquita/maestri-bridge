@@ -101,7 +101,17 @@ export interface MentionView {
   token?: string;
 }
 
+export interface FollowBannerView {
+  label: string;
+  phase: 'following' | 'paused' | 'completed';
+  accent: 'blue' | 'purple' | 'green' | 'orange' | 'red' | 'yellow';
+  toggleLabel: string;
+  stopLabel: string;
+  tooltip: string;
+}
+
 export type ChatToWebview =
+  | { type: 'followState'; follow?: FollowBannerView }
   | { type: 'state'; state: ChatViewState }
   | { type: 'focusMessage' }
   | { type: 'attachmentData'; id: string; dataUri: string }
@@ -109,6 +119,7 @@ export type ChatToWebview =
   | { type: 'pastedAsReference'; start: number; end: number; text: string };
 
 export type ChatFromWebview =
+  | { type: 'followAction'; action: 'pause' | 'resume' | 'stop' }
   | { type: 'ready' }
   | { type: 'pickAgent' }
   | { type: 'enableChat' }
@@ -178,6 +189,9 @@ export function parseChatFromWebview(raw: unknown): ChatFromWebview | undefined 
   }
 
   switch (type) {
+    case 'followAction':
+      return raw.action === 'pause' || raw.action === 'resume' || raw.action === 'stop'
+        ? { type, action: raw.action } : undefined;
     case 'selectThread':
     case 'clearThread':
       return isSlot(raw.slot) ? { type, slot: raw.slot } : undefined;
