@@ -37,6 +37,5 @@
   "command.follow.start": "跟随代理",
   "command.follow.pause": "暂停跟随",
   "command.follow.resume": "恢复跟随",
-  "command.follow.stop": "停止跟随",
-  "command.follow.reply": "回复代理"
+  "command.follow.stop": "停止跟随"
 }

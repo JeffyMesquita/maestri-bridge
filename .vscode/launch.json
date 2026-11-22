@@ -5,7 +5,7 @@
       "name": "Run Maestri extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/integrations/vscode"],
+      "args": ["${workspaceFolder}", "--extensionDevelopmentPath=${workspaceFolder}/integrations/vscode"],
       "outFiles": ["${workspaceFolder}/integrations/vscode/dist/**/*.cjs"],
       "preLaunchTask": "build:vscode"
     }

@@ -96,9 +96,9 @@ In a remote window, VS Code runs Maestri Bridge on the remote side, next to your
 
 Open a trusted local project and choose **Maestri: Follow agent** from the Command Palette, the target icon in the Agents/Chat header, or the action beside an agent. Choose the agent and, for a multi-root workspace, the project root. The extension sends that agent the session-specific activity helper instructions through the existing paired connection.
 
-The agent publishes activity after writing a file. Following checks the current file revision before highlighting the range or showing a short decision note. It does not infer authorship from filesystem changes. This first version uses cooperative URI events: the identity is reported by the emitter, not authenticated by a new host activity API.
+The agent publishes activity after saving a file. Following checks the current file revision, opens the file and briefly highlights the reported range. Routine changes do not create inline comments; optional decision explanations stay in the Chat card. It does not infer authorship from filesystem changes. This first version uses cooperative URI events: the identity is reported by the emitter, not authenticated by a new host activity API.
 
-Use **Pause following**, **Resume following** or **Stop following** from the view header or Command Palette. Clicking the follow status toggles pause/resume. Navigating, editing or leaving the window pauses following; resuming shows only the latest code location, without replaying old decisions. Reply directly to a decision note to send the attached code reference back to the selected agent.
+Use **Pause following**, **Resume following** or **Stop following** from the Chat card, view header or Command Palette. Clicking the follow status toggles pause/resume. Navigating, editing or leaving the window pauses following; resuming rechecks the latest code location. Use Chat for the conversation. Explicit `/show` notes remain a separate walkthrough interface.
 
 Following is off on restart. It requires agent links to be enabled, a paired Maestri connection and an existing local text file inside the selected root. Unsaved, changed, sensitive or unavailable files pause the view instead of being reloaded or saved. Remote workspaces and a host-authenticated continuous activity channel are outside this first version.
 

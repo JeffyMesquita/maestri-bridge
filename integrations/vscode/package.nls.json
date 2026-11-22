@@ -37,6 +37,5 @@
   "command.follow.start": "Follow agent",
   "command.follow.pause": "Pause following",
   "command.follow.resume": "Resume following",
-  "command.follow.stop": "Stop following",
-  "command.follow.reply": "Reply to agent"
+  "command.follow.stop": "Stop following"
 }

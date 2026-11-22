@@ -85,7 +85,7 @@ After saving a text file, publish its current range:
 node <helper> focus <relative/file.ts:12-20> --session <session> --agent <agent> --seq <increasing-number> --root <root> --editor-path <editor-executable> --uri-base <uri-base>
 ```
 
-For a relevant decision, use `decision <file:lines> <short-explanation>` instead of `focus <file:lines>`. To finish, use `finish` with the same context and an increased sequence number. Quote each argument using the current shell's syntax. `--print` emits the URI without opening the editor.
+After each meaningful saved change, publish `focus` for the changed lines and keep routine explanations in the conversation. For an important decision, use `decision <file:lines> <short-explanation>` instead; the explanation stays in the Chat card without opening an inline comment. The editor briefly highlights the reported range; it does not compute a character diff or rewrite document text to simulate typing. To finish, use `finish` with the same context and an increased sequence number. Quote each argument using the current shell's syntax. `--print` emits the URI without opening the editor.
 
 The helper computes the revision from saved content. Never publish sensitive files or values. A publishing error must not repeat the code edit. No watcher, detached agent, new server or authentication change is needed. URI activity is cooperative and does not authenticate the author. `/show` remains the separate manual walkthrough interface.
 

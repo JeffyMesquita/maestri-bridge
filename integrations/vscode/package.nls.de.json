@@ -37,6 +37,5 @@
   "command.follow.start": "Agent folgen",
   "command.follow.pause": "Verfolgung pausieren",
   "command.follow.resume": "Verfolgung fortsetzen",
-  "command.follow.stop": "Verfolgung beenden",
-  "command.follow.reply": "Agent antworten"
+  "command.follow.stop": "Verfolgung beenden"
 }

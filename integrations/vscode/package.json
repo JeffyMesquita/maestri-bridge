@@ -181,12 +181,6 @@
         "title": "%command.follow.stop%",
         "category": "Maestri",
         "icon": "$(debug-stop)"
-      },
-      {
-        "command": "maestriBridge.follow.reply",
-        "title": "%command.follow.reply%",
-        "category": "Maestri",
-        "icon": "$(send)"
       }
     ],
     "menus": {
@@ -234,10 +228,6 @@
         {
           "command": "maestriBridge.notes.close",
           "when": "false"
-        },
-        {
-          "command": "maestriBridge.follow.reply",
-          "when": "false"
         }
       ],
       "editor/context": [
@@ -284,11 +274,6 @@
           "command": "maestriBridge.notes.reply",
           "group": "inline",
           "when": "commentController == maestriBridgeNotes && commentThread == maestri.note.reply"
-        },
-        {
-          "command": "maestriBridge.follow.reply",
-          "group": "inline",
-          "when": "commentController == maestriBridgeFollow"
         }
       ],
       "comments/comment/context": [

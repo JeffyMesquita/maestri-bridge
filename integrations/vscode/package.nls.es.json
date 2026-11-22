@@ -37,6 +37,5 @@
   "command.follow.start": "Seguir agente",
   "command.follow.pause": "Pausar seguimiento",
   "command.follow.resume": "Reanudar seguimiento",
-  "command.follow.stop": "Detener seguimiento",
-  "command.follow.reply": "Responder al agente"
+  "command.follow.stop": "Detener seguimiento"
 }

@@ -37,6 +37,5 @@
   "command.follow.start": "エージェントを追跡",
   "command.follow.pause": "追跡を一時停止",
   "command.follow.resume": "追跡を再開",
-  "command.follow.stop": "追跡を終了",
-  "command.follow.reply": "エージェントに返信"
+  "command.follow.stop": "追跡を終了"
 }

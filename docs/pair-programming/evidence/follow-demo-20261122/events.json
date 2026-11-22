@@ -1,0 +1,57 @@
+[
+  {
+    "elapsedMs": 2325,
+    "kind": "focus",
+    "seq": 1,
+    "file": "docs/pair-programming/evidence/follow-demo-20261122/shipping-total.mjs",
+    "range": {
+      "startLine": 1,
+      "endLine": 8
+    },
+    "revision": "3a2800fb0fcce9ac8f5f947c92d9f4376af5021abba52c79da5a59377269e0a0"
+  },
+  {
+    "elapsedMs": 9147,
+    "kind": "focus",
+    "seq": 2,
+    "file": "docs/pair-programming/evidence/follow-demo-20261122/shipping-total.test.mjs",
+    "range": {
+      "startLine": 5,
+      "endLine": 9
+    },
+    "revision": "93ceb9477bd4fe1cc41b526da481c9b50fb633a33ecb8585d52b7ca1b7889936"
+  },
+  {
+    "elapsedMs": 15999,
+    "kind": "decision",
+    "seq": 3,
+    "file": "docs/pair-programming/evidence/follow-demo-20261122/shipping-total.mjs",
+    "range": {
+      "startLine": 6,
+      "endLine": 12
+    },
+    "revision": "9aa282ab651889ad7c6111d6b453b3f925b0a56300feaff0d793d52487e6a270"
+  },
+  {
+    "elapsedMs": 22786,
+    "kind": "focus",
+    "seq": 4,
+    "file": "docs/pair-programming/evidence/follow-demo-20261122/shipping-total.test.mjs",
+    "range": {
+      "startLine": 11,
+      "endLine": 17
+    },
+    "revision": "93ceb9477bd4fe1cc41b526da481c9b50fb633a33ecb8585d52b7ca1b7889936"
+  },
+  {
+    "elapsedMs": 29764,
+    "kind": "focus",
+    "seq": 5,
+    "file": "docs/pair-programming/evidence/follow-demo-20261122/shipping-total.mjs",
+    "range": {
+      "startLine": 1,
+      "endLine": 12
+    },
+    "revision": "9aa282ab651889ad7c6111d6b453b3f925b0a56300feaff0d793d52487e6a270"
+  }
+]

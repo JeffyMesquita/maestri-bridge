@@ -32,7 +32,7 @@ export function registerChatView(
         tooltip: t('follow.cooperative'),
         context: [summary.workspaceName, summary.rootPath].filter(Boolean).join(' · '),
         file: summary.file,
-        waitingLabel: summary.phase === 'completed' ? '' : t('follow.waitingNote'),
+        waitingLabel: summary.phase === 'following' && !summary.file ? t('follow.waitingActivity') : '',
         note: note ? {
           label: t('follow.latestNote'),
           location: `${note.file}:${note.startLine}–${note.endLine}`,

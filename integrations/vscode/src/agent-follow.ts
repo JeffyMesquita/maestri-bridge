@@ -3,8 +3,6 @@ import * as vscode from 'vscode';
 import { parseActivityLink, ACTIVITY_LINK_PATH } from '@maestri-bridge/core';
 import type { AgentMonitor } from './agent-monitor.ts';
 import { pickAgent, toAgentTarget } from './agent-picker.ts';
-import { deliver } from './delivery.ts';
-import { referencesForRange } from './editor-references.ts';
 import { FollowEditor } from './follow-editor.ts';
 import { followAccent, followPresentation } from './follow-presentation.ts';
 import { enqueueFollowActivity, pauseFollow, receiveFollowActivity, resumeFollow, startFollow } from './follow-state.ts';
@@ -68,7 +66,6 @@ export class AgentFollow implements vscode.Disposable {
       vscode.commands.registerCommand('maestriBridge.follow.pause', () => this.pause()),
       vscode.commands.registerCommand('maestriBridge.follow.resume', () => this.resume()),
       vscode.commands.registerCommand('maestriBridge.follow.stop', () => this.stop()),
-      vscode.commands.registerCommand('maestriBridge.follow.reply', (reply: vscode.CommentReply) => this.reply(reply)),
       vscode.window.onDidChangeTextEditorSelection((event) => {
         if (event.kind === vscode.TextEditorSelectionChangeKind.Keyboard ||
           event.kind === vscode.TextEditorSelectionChangeKind.Mouse ||
@@ -87,6 +84,7 @@ export class AgentFollow implements vscode.Disposable {
       vscode.workspace.onDidChangeWorkspaceFolders(() => this.stop()),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (event.affectsConfiguration('maestriBridge.agentLinks') && !this.enabled()) this.stop();
+        if (event.affectsConfiguration('workbench.reduceMotion')) this.editor.cancelEmphasis();
       }),
       services.session.onDidChangeCredentials(() => this.stop()),
       monitor.onDidChange(() => this.checkContext()),
@@ -219,8 +217,8 @@ export class AgentFollow implements vscode.Disposable {
         `Helper: ${helper}`,
         `Editor executable: ${process.execPath}`,
         `URI base: ${activityUri.toString()}`,
-        'After each meaningful saved change, run node <helper> decision <relative POSIX path:start-end> <short explanation> --session <session> --agent <agent> --seq <increasing integer> --root <root> --editor-path <editor executable> --uri-base <URI base>. Quote each argument for your shell.',
-        'In one or two sentences explain what the highlighted code does and why you are changing it. Use the user’s language and describe the actual saved change. Use focus <file:start-end> for navigation alone. Send finish only when the task is complete, with the same options except file. Never publish secrets or private files.',
+        'After each meaningful saved change, run node <helper> focus <relative POSIX path:start-end> --session <session> --agent <agent> --seq <increasing integer> --root <root> --editor-path <editor executable> --uri-base <URI base>. Quote each argument for your shell. Point at the changed lines, keeping the range small enough to read.',
+        'Keep explanations in the conversation; do not create inline notes for routine changes. For an important decision, you may use decision <file:start-end> <short explanation> instead of focus; the explanation stays in the Chat card. Use the user’s language and describe the actual saved change. Send finish only when the task is complete, with the same options except file. Never publish secrets or private files.',
       ].join('\n');
       try {
         await client.sendPrompt(target.terminalId, instructions);
@@ -238,6 +236,7 @@ export class AgentFollow implements vscode.Disposable {
     this.state = pauseFollow(this.state);
     this.generation++;
     this.cancelQueued();
+    this.editor.cancelEmphasis();
     this.update(message);
   }
 
@@ -255,7 +254,7 @@ export class AgentFollow implements vscode.Disposable {
     const current = (): boolean => !this.disposed && epoch === this.generation &&
       this.state?.phase === 'following' && this.state.sessionId === event.sessionId && this.enabled();
     try {
-      const shown = await this.editor.show(this.root, event, this.target.terminalName, current);
+      const shown = await this.editor.show(this.root, event, current);
       if (!current()) return;
       if (!shown) {
         if (this.queued.length === 0) this.pause(t('follow.stale'));
@@ -279,24 +278,6 @@ export class AgentFollow implements vscode.Disposable {
       (snapshot && !snapshot.terminals.some((item) => item.id === this.target?.terminalId))) {
       this.stop();
     }
-  }
-
-  private async reply(reply: vscode.CommentReply): Promise<void> {
-    if (!reply?.thread || !this.editor.owns(reply.thread) || !reply.text.trim() || !this.target) return;
-    const target = this.target;
-    const client = await this.services.session.currentClient();
-    if (!client) return;
-    try {
-      const snapshot = await client.getFeed(target.workspaceId, target.floorId);
-      if (this.target !== target || !snapshot.terminals.some((item) => item.id === target.terminalId)) return;
-      const document = await vscode.workspace.openTextDocument(reply.thread.uri);
-      const range = reply.thread.range;
-      if (!range || this.target !== target || !this.editor.owns(reply.thread)) return;
-      await deliver({
-        session: this.services.session, client, memory: this.services.memory, target,
-        message: reply.text.trim(), references: referencesForRange(document, range), notifySuccess: false,
-      });
-    } catch (error) { await showFlowError(this.services.session, error); }
   }
 
   private update(message?: string): void {
