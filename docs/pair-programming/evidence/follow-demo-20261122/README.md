@@ -25,15 +25,14 @@ node docs/pair-programming/evidence/follow-demo-20261122/run-demo.mjs path/to/lo
 
 The script writes only its own two synthetic fixture files, creates three `focus` updates and one `decision`, then publishes the fifth event returning to the source. It runs the fixture's three tests and saves relative paths, revisions and event timings in `events.json`. Explanations are delivered to the Chat card; the document is never rewritten to simulate animation. Follow remains active at the end so Pause/Resume/Stop can be checked separately.
 
-The recorded run used temporary workspace-only `workbench.reduceMotion: off` and `editor.smoothScrolling: true`, removed after capture. Public media is a normal-speed 33-second continuous excerpt, cropped from an 80-second desktop recording. MP4 and GIF share this filter before frame-rate conversion:
+The recorded run used temporary workspace-only `workbench.reduceMotion: off` and `editor.smoothScrolling: true`, removed after capture. Public media is a normal-speed 33-second continuous excerpt from an 80-second desktop recording. Both formats preserve the complete 1920 × 1032 window, including title, tabs, Agents panel, code, Follow card, terminal and status bar. No spatial crop, resizing or panel masks are applied. Only frame-rate/palette conversion is used:
 
 ```text
-crop=1530:780:340:80,
-drawbox=x=1294:y=0:w=236:h=470:color=0x1e1e1e:t=fill,
-drawbox=x=1302:y=485:w=228:h=70:color=0x1e1e1e:t=fill
+MP4: fps=30
+GIF: fps=20, palettegen/paletteuse (128 colors)
 ```
 
-The masks cover agent details and local identity/root fields; synthetic relative paths remain visible. Source capture was approximately 28.08 fps variable-rate; published MP4 and GIF are resampled to 30 and 20 fps without speeding playback. Visual checks used sampled frames and a consecutive-frame strip; they are not a latency benchmark.
+The complete window preserves the navigation context. Source capture was approximately 28.08 fps variable-rate; published MP4 and GIF are resampled to 30 and 20 fps without speeding playback. Visual checks used sampled frames and a consecutive-frame strip; they are not a latency benchmark.
 
 Run the final fixture tests independently:
 
