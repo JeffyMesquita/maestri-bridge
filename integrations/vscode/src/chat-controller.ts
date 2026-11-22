@@ -121,7 +121,15 @@ export class ChatController implements vscode.Disposable {
   private lastMarkReadAt = 0;
   private disposed = false;
 
-  constructor(services: ExtensionServices, monitor: AgentMonitor) {
+  get currentTarget(): AgentTarget | undefined {
+    return this.target;
+  }
+
+  constructor(
+    services: ExtensionServices,
+    monitor: AgentMonitor,
+    private readonly onTargetChanged?: (target: AgentTarget) => void,
+  ) {
     this.services = services;
     this.monitor = monitor;
     this.target = services.memory.lastTarget();
@@ -343,6 +351,7 @@ export class ChatController implements vscode.Disposable {
   private changeTarget(target: AgentTarget): void {
     const changed = this.target?.terminalId !== target.terminalId;
     this.target = target;
+    this.onTargetChanged?.(target);
     void this.services.memory.remember(target);
     if (changed) {
       this.pending = [];

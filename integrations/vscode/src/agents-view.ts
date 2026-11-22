@@ -2,9 +2,6 @@ import * as vscode from 'vscode';
 import { countAttention, groupTerminalsByFloor } from '@maestri-bridge/core';
 import type { FeedSnapshot, FloorSummary, TerminalSummary, WorkspaceSummary } from '@maestri-bridge/core';
 import type { AgentMonitor } from './agent-monitor.ts';
-import type { AgentFollow } from './agent-follow.ts';
-import { followAccent, followPresentation } from './follow-presentation.ts';
-import type { FollowSummary } from './follow-state.ts';
 import {
   agentContextValue,
   agentDescription,
@@ -33,8 +30,7 @@ type AgentsNode =
   | { kind: 'others' }
   | { kind: 'workspace'; workspace: WorkspaceSummary }
   | { kind: 'message'; text: string }
-  | { kind: 'current'; name: string; detail: string }
-  | { kind: 'following'; summary: FollowSummary };
+  | { kind: 'current'; name: string; detail: string };
 
 interface AgentNode {
   kind: 'agent';
@@ -53,7 +49,7 @@ class AgentsTreeProvider implements vscode.TreeDataProvider<AgentsNode> {
   private readonly emitter = new vscode.EventEmitter<AgentsNode | undefined>();
   readonly onDidChangeTreeData: vscode.Event<AgentsNode | undefined> = this.emitter.event;
 
-  constructor(private readonly monitor: AgentMonitor, private readonly follow: AgentFollow) {}
+  constructor(private readonly monitor: AgentMonitor) {}
 
   getTreeItem(node: AgentsNode): vscode.TreeItem {
     return this.itemFor(node);
@@ -122,7 +118,6 @@ class AgentsTreeProvider implements vscode.TreeDataProvider<AgentsNode> {
       { kind: 'current', name: snapshot.workspace.name, detail: currentDetail(this.monitor, snapshot) },
       ...orderAgents(snapshot, currentTerminals).map((terminal): AgentsNode => ({ kind: 'agent', terminal })),
     ];
-    if (this.follow.summary) nodes.unshift({ kind: 'following', summary: this.follow.summary });
     if (currentTerminals.length === 0) {
       nodes.push({ kind: 'message', text: t('agents.view.emptyFloor') });
     }
@@ -145,16 +140,7 @@ class AgentsTreeProvider implements vscode.TreeDataProvider<AgentsNode> {
   private itemFor(node: AgentsNode): vscode.TreeItem {
     switch (node.kind) {
       case 'agent':
-        return agentItem(this.monitor, node.terminal, this.follow.summary);
-      case 'following': {
-        const presentation = followPresentation(node.summary);
-        const item = new vscode.TreeItem(presentation.label);
-        item.id = 'follow-status';
-        item.iconPath = new vscode.ThemeIcon(presentation.icon, new vscode.ThemeColor(followAccent(node.summary.agentId).themeColor));
-        item.tooltip = t('follow.cooperative');
-        item.command = { command: presentation.command, title: presentation.label };
-        return item;
-      }
+        return agentItem(this.monitor, node.terminal);
       case 'detail':
         return detailItem(node);
       case 'floor':
@@ -180,15 +166,13 @@ class AgentsTreeProvider implements vscode.TreeDataProvider<AgentsNode> {
 export function registerAgentsView(
   services: ExtensionServices,
   monitor: AgentMonitor,
-  follow: AgentFollow,
 ): vscode.Disposable {
-  const provider = new AgentsTreeProvider(monitor, follow);
+  const provider = new AgentsTreeProvider(monitor);
   const treeView = vscode.window.createTreeView('maestriBridge.agents', {
     treeDataProvider: provider,
     showCollapseAll: false,
   });
   const disposables: vscode.Disposable[] = [provider, treeView];
-  disposables.push(follow.onDidChange(() => provider.refresh()));
 
   const updateChrome = (): void => {
     const snapshot = monitor.snapshot;
@@ -268,7 +252,7 @@ export function registerAgentsView(
   });
 }
 
-function agentItem(monitor: AgentMonitor, terminal: TerminalSummary, followed?: FollowSummary): vscode.TreeItem {
+function agentItem(monitor: AgentMonitor, terminal: TerminalSummary): vscode.TreeItem {
   const item = new vscode.TreeItem(terminal.name);
   item.id = `agent:${terminal.id}`;
   item.collapsibleState = vscode.TreeItemCollapsibleState.None;
@@ -293,11 +277,6 @@ function agentItem(monitor: AgentMonitor, terminal: TerminalSummary, followed?: 
         ? vscode.TreeItemCollapsibleState.Expanded
         : vscode.TreeItemCollapsibleState.Collapsed;
   item.tooltip = agentTooltip(snapshot, terminal);
-  if (followed?.agentId === terminal.id) {
-    const presentation = followPresentation(followed);
-    item.iconPath = new vscode.ThemeIcon(presentation.icon, new vscode.ThemeColor(followAccent(followed.agentId).themeColor));
-    item.description = `${presentation.badge} · ${item.description}`;
-  }
   return item;
 }
 

@@ -58,9 +58,6 @@ export async function pickAgent(options: {
   references: readonly CodeReference[];
   filePath?: string;
   title?: string;
-  placeholder?: string;
-  selectedWorkspaceId?: string;
-  includeTerminalPreview?: boolean;
 }): Promise<PickedAgent | undefined> {
   const { session, client, memory, references } = options;
   const baseTitle = options.title ?? t('agents.picker.title');
@@ -70,7 +67,7 @@ export async function pickAgent(options: {
   quickPick.placeholder = t('agents.picker.loading');
   quickPick.busy = true;
   quickPick.matchOnDescription = true;
-  quickPick.matchOnDetail = options.includeTerminalPreview !== false;
+  quickPick.matchOnDetail = true;
   quickPick.ignoreFocusOut = false;
   quickPick.show();
 
@@ -117,7 +114,7 @@ export async function pickAgent(options: {
         ? t('agents.picker.placeholderWithReferences', {
             summary: summarizeReferences(references),
           })
-        : (options.placeholder ?? t('agents.picker.placeholder'));
+        : t('agents.picker.placeholder');
 
     const groups = groupTerminalsByFloor(snapshot);
     const showFloors = snapshot.floors.length > 1;
@@ -137,7 +134,7 @@ export async function pickAgent(options: {
         continue;
       }
       for (const terminal of rankTerminals(group.terminals, lastTerminalId)) {
-        const view = terminalItemView(terminal, options.includeTerminalPreview);
+        const view = terminalItemView(terminal);
         const item: PickItem = {
           label: view.label,
           description: showFloors
@@ -219,7 +216,6 @@ export async function pickAgent(options: {
 
     const loaded = await loadFeed(chosen.workspace);
     if (loaded && !disposed) {
-      quickPick.value = '';
       quickPick.show();
     }
   };
@@ -276,7 +272,6 @@ export async function pickAgent(options: {
 
     const chosenWorkspace = chooseWorkspace({
       workspaces,
-      selectedWorkspaceId: options.selectedWorkspaceId,
       filePath: options.filePath,
       folderPath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
       rememberedWorkspaceId: memory.lastWorkspaceId(),

@@ -14,7 +14,7 @@ Chat with the agents running in [Maestri](https://www.themaestri.app) and send t
 - **Mentions and saved prompts.** Type `@` to mention an agent, a floor, a note, a portal, a Maestri action or a file. Type `$` to insert one of your saved Maestri prompts.
 - **Code links.** When an agent writes a path such as `src/auth/session.ts:12-24`, the path becomes a link that opens the file with those lines selected.
 - **Live agents sidebar.** See every agent in the current Maestri workspace with its status (working, idle, stopped, needs attention) and its latest output. From there you can write to an agent, open its terminal in Maestri and approve or reject a confirmation prompt.
-- **Follow an agent.** Use the target icon beside an agent or in the Agents/Chat header to follow its cooperative code updates. Verified file revisions appear in the editor without replacing your selection; navigation pauses following. Pause, resume and stop are also available from the Command Palette.
+- **Follow saved changes.** Use the Follow toggle in the Chat header to review saved changes in a native diff. Interacting with the editor suspends navigation while the extension collects pending changes.
 - **Floors.** Agents on the current floor come first. Agents on other floors are grouped by floor name, and the agent search also matches floor names.
 - **Agents show you code.** An agent can open a file in your editor, highlight lines and leave a note below them. Reply in the same box and the answer goes back to that agent. Several notes in a row become a tour you step through.
 - **Attention alerts.** A notification shows up when an agent starts waiting for you.
@@ -92,19 +92,13 @@ In a remote window, VS Code runs Maestri Bridge on the remote side, next to your
 
 ## Usage
 
-### Follow an agent while it changes code
+### Follow saved changes
 
-Open a trusted local project and choose **Maestri: Follow agent** from the Command Palette, the target icon in the Agents/Chat header, or the action beside an agent. Choose the agent and, for a multi-root workspace, the project root. The extension sends that agent the session-specific activity helper instructions through the existing paired connection.
+Open a trusted local project, select the agent in Chat, and turn on **Follow** in the Chat header. The extension watches the selected folder and compares saved edits with the contents at the start of the session in a read-only VS Code diff. Folder changes are displayed without author attribution.
 
-The agent publishes activity after saving a file. Following checks the current file revision, opens the file and briefly highlights the reported range. Routine changes do not create inline comments; optional decision explanations stay in the Chat card. It does not infer authorship from filesystem changes. This first version uses cooperative URI events: the identity is reported by the emitter, not authenticated by a new host activity API.
+Click or type in the editor to suspend navigation. **N files changed · View** lets you catch up and resume. Switching application focus or changing the layout keeps Follow running. Use **/show** separately when you want an explanation.
 
-Use **Pause following**, **Resume following** or **Stop following** from the Chat card, view header or Command Palette. Clicking the follow status toggles pause/resume. Navigating, editing or leaving the window pauses following; resuming rechecks the latest code location. Use Chat for the conversation. Explicit `/show` notes remain a separate walkthrough interface.
-
-Following is off on restart. It requires agent links to be enabled, a paired Maestri connection and an existing local text file inside the selected root. Unsaved, changed, sensitive or unavailable files pause the view instead of being reloaded or saved. Remote workspaces and a host-authenticated continuous activity channel are outside this first version.
-
-The followed agent is identified in a persistent Agents row, on its own tree item, in a colored Chat card and in the status bar. A stable agent color connects these indicators with the file decoration in the tab/Explorer. One agent drives the editor at a time.
-
-Usage, architecture boundaries and validation: [Follow an agent / Acompanhar um agente](docs/agent-follow.md). Future proposals: [bilingual roadmap](docs/agent-follow-roadmap.md).
+[Follow usage and validation](docs/agent-follow.md).
 
 ### Write to an agent from the editor
 

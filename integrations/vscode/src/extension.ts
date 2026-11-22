@@ -43,8 +43,8 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
     registerCommentComposer(services),
     registerChatView(services, monitor, follow),
-    registerAgentNotes(services, monitor, (uri) => follow.handleUri(uri)),
-    registerAgentsView(services, monitor, follow),
+    registerAgentNotes(services, monitor),
+    registerAgentsView(services, monitor),
     registerAttentionNotifier(services, monitor),
     createStatusBar(session, monitor),
   );

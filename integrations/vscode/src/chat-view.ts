@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
 import type { AgentMonitor } from './agent-monitor.ts';
 import type { AgentFollow } from './agent-follow.ts';
-import { followAccent, followPresentation } from './follow-presentation.ts';
 import { parseChatFromWebview } from './chat-protocol.ts';
-import type { ChatToWebview } from './chat-protocol.ts';
+import type { ChatToWebview, FollowToggleView } from './chat-protocol.ts';
 import { ChatController } from './chat-controller.ts';
 import { composerHtml, createNonce } from './composer-html.ts';
 import { t } from './i18n/index.ts';
@@ -14,39 +13,36 @@ export function registerChatView(
   monitor: AgentMonitor,
   follow: AgentFollow,
 ): vscode.Disposable {
-  const controller = new ChatController(services, monitor);
+  const controller = new ChatController(services, monitor, (target) => follow.setChatTarget(target));
   let panel: vscode.WebviewPanel | undefined;
 
   const sendFollowing = (webview: vscode.Webview): void => {
     const summary = follow.summary;
-    const note = summary?.note;
-    const message: ChatToWebview = {
-      type: 'followState',
-      startLabel: t(summary && summary.phase !== 'completed' ? 'follow.changeAgent' : 'follow.title'),
-      follow: summary ? {
-        label: followPresentation(summary).label,
-        phase: summary.phase,
-        accent: followAccent(summary.agentId).name,
-        toggleLabel: t(summary.phase === 'paused' ? 'follow.resume' : 'follow.pause'),
-        stopLabel: t('follow.stop'),
-        tooltip: t('follow.cooperative'),
-        context: [summary.workspaceName, summary.rootPath].filter(Boolean).join(' · '),
-        file: summary.file,
-        waitingLabel: summary.phase === 'following' && !summary.file ? t('follow.waitingActivity') : '',
-        note: note ? {
-          label: t('follow.latestNote'),
-          location: `${note.file}:${note.startLine}–${note.endLine}`,
-          message: note.message,
-        } : undefined,
-      } : undefined,
+    const phase = summary?.phase;
+    const pendingCount = summary?.pendingCount ?? 0;
+    const error = summary?.error ?? false;
+    const followView: FollowToggleView | undefined = phase === undefined ? undefined : {
+      phase,
+      pendingCount,
+      error,
+      pressed: true,
+      label: t(phase === 'starting' ? 'follow.statusStarting'
+        : phase === 'following' ? 'follow.statusFollowing' : 'follow.statusPaused'),
+      toggleLabel: t('follow.toggle'),
+      tooltip: error ? t('follow.updateFailed') : t('follow.title'),
+      viewLabel: phase === 'paused' && pendingCount > 0
+        ? t(pendingCount === 1 ? 'follow.pendingOne' : 'follow.pendingMany', { count: pendingCount })
+        : undefined,
     };
+    const message: ChatToWebview = { type: 'followState', follow: followView };
     void webview.postMessage(message);
   };
 
   const receive = (webview: vscode.Webview, raw: unknown): void => {
     const parsed = parseChatFromWebview(raw);
     if (parsed?.type === 'followAction') {
-      void vscode.commands.executeCommand(`maestriBridge.follow.${parsed.action}`);
+      if (parsed.action === 'view') void follow.viewPending();
+      else void follow.toggle(controller.currentTarget);
       return;
     }
     if (parsed?.type === 'ready') sendFollowing(webview);
@@ -75,7 +71,6 @@ export function registerChatView(
       view.webview.options = { enableScripts: true, localResourceRoots: resources() };
       view.webview.html = htmlFor(view.webview);
       const updateFollowing = (): void => {
-        view.description = follow.summary ? followPresentation(follow.summary).label : undefined;
         sendFollowing(view.webview);
       };
       updateFollowing();
@@ -114,7 +109,6 @@ export function registerChatView(
 
     const surface = controller.addSurface(created.webview, created.visible);
     const followListener = follow.onDidChange(() => {
-      created.title = `${t('chat.panel.title')}${follow.summary ? ` · ${followPresentation(follow.summary).label}` : ''}`;
       sendFollowing(created.webview);
     });
     const messageListener = created.webview.onDidReceiveMessage((raw: unknown) => {

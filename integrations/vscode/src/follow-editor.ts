@@ -1,127 +1,94 @@
 import * as vscode from 'vscode';
-import { checkActivityTarget } from '@maestri-bridge/core';
-import { resolveFollowFile } from './follow-file.ts';
-import type { FollowActivity } from './follow-state.ts';
+import type { FollowChange } from './follow-watch.ts';
 
-const NAVIGATION_SETTLE_MS = 300;
-const EMPHASIS_MS = 1200;
-const SWEEP_MS = 160;
+const scheme = 'maestri-follow';
+
+interface Preview {
+  uri: vscode.Uri;
+  text: string;
+  line: number;
+  current: () => boolean;
+}
 
 export class FollowEditor implements vscode.Disposable {
-  private readonly highlight = vscode.window.createTextEditorDecorationType({
-    isWholeLine: true,
-    backgroundColor: new vscode.ThemeColor('editor.rangeHighlightBackground'),
-    borderStyle: 'solid',
-    borderWidth: '0 0 0 2px',
-    borderColor: new vscode.ThemeColor('focusBorder'),
-    overviewRulerColor: new vscode.ThemeColor('focusBorder'),
-    overviewRulerLane: vscode.OverviewRulerLane.Center,
+  private readonly documents = new Map<string, string>();
+  private readonly changes = new vscode.EventEmitter<vscode.Uri>();
+  private readonly provider = vscode.workspace.registerTextDocumentContentProvider(scheme, {
+    onDidChange: this.changes.event,
+    provideTextDocumentContent: (uri) => this.documents.get(uri.toString()) ?? '',
   });
-  private emphasisTimer: ReturnType<typeof setTimeout> | undefined;
-  private editor: vscode.TextEditor | undefined;
-  private ownNavigation: { target: string; previous?: string; settledAt?: number } | undefined;
+  private readonly documentChanges = vscode.workspace.onDidChangeTextDocument(() => this.reveal());
+  private readonly documentCloses = vscode.workspace.onDidCloseTextDocument(({ uri }) => {
+    if (uri.scheme === scheme) this.documents.delete(uri.toString());
+  });
+  private readonly visibleChanges = vscode.window.onDidChangeVisibleTextEditors(() => this.reveal());
+  private session = 0;
   private column: vscode.ViewColumn | undefined;
-  private readonly documentChanges = vscode.workspace.onDidChangeTextDocument(({ document }) => {
-    if (document === this.editor?.document) this.cancelEmphasis();
-  });
+  private preview: Preview | undefined;
 
-  get uri(): vscode.Uri | undefined {
-    return this.editor?.document?.uri;
+  begin(): void {
+    this.clear();
+    this.session++;
+    const group = vscode.window.tabGroups.activeTabGroup;
+    this.column = group.activeTab?.input instanceof vscode.TabInputWebview
+      ? vscode.ViewColumn.Beside
+      : group.viewColumn;
   }
 
-  begin(beside = false): void {
-    const active = vscode.window.activeTextEditor?.viewColumn;
-    this.column = beside && active !== undefined ? vscode.ViewColumn.Beside : active;
-  }
+  async show(change: FollowChange, current: () => boolean): Promise<boolean> {
+    if (!current()) return false;
+    const before = this.uri(change.file, 'initial');
+    const after = this.uri(change.file, 'saved');
+    const text = (change.saved ?? '').replace(/\r\n?/g, '\n');
+    const preview = { uri: after, text, line: change.line, current };
+    this.preview = preview;
+    this.documents.set(before.toString(), change.baseline ?? '');
+    const previous = this.documents.get(after.toString());
+    this.documents.set(after.toString(), text);
+    if (previous !== undefined && previous !== text) this.changes.fire(after);
 
-  isOwnNavigation(uri: vscode.Uri): boolean {
-    const navigation = this.ownNavigation;
-    if (!navigation) return false;
-    const path = uri.toString();
-    if (navigation.settledAt === undefined) {
-      return path === navigation.target || path === navigation.previous;
-    }
-    return path === navigation.target && Date.now() - navigation.settledAt < NAVIGATION_SETTLE_MS;
-  }
-
-  async show(
-    root: vscode.Uri,
-    event: FollowActivity,
-    current: () => boolean,
-  ): Promise<boolean> {
-    if (!event.file || !event.range || !current()) return false;
-    const file = await resolveFollowFile(root.fsPath, event.file);
-    if (!file || !current()) return false;
-    const uri = vscode.Uri.file(file);
-    const document = await vscode.workspace.openTextDocument(uri);
-    if (!current() || document.isClosed || document.getText().includes('\0') || !checkActivityTarget(event, {
-      text: document.getText(), lineCount: document.lineCount, isDirty: document.isDirty,
-    }).ok) return false;
-    const range = new vscode.Range(event.range.startLine - 1, 0, event.range.endLine - 1, document.lineAt(event.range.endLine - 1).text.length);
-    const navigation: NonNullable<FollowEditor['ownNavigation']> = {
-      target: uri.toString(),
-      previous: vscode.window.activeTextEditor?.document.uri.toString(),
-    };
-    this.ownNavigation = navigation;
-    try {
-      const editor = await vscode.window.showTextDocument(document, {
-        preserveFocus: true, preview: true, viewColumn: this.column ?? vscode.ViewColumn.Active,
+    if (!this.reveal()) {
+      await vscode.commands.executeCommand('vscode.diff', before, after, change.file, {
+        preserveFocus: true,
+        preview: true,
+        viewColumn: this.column,
       });
-      if (!current() || document.isClosed || document.isDirty || !checkActivityTarget(event, {
-        text: document.getText(), lineCount: document.lineCount, isDirty: document.isDirty,
-      }).ok) return false;
-      this.cancelEmphasis();
-      this.editor = editor;
-      this.column = editor.viewColumn ?? this.column;
-      if (!editor.visibleRanges.some((visible) => visible.contains(range))) {
-        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-      }
-      this.emphasize(editor, range, current);
-      return true;
-    } finally {
-      navigation.settledAt = Date.now();
+      this.reveal();
     }
+
+    return current();
+  }
+
+  private uri(file: string, revision: 'initial' | 'saved'): vscode.Uri {
+    return vscode.Uri.from({ scheme, path: '/' + file, query: this.session + ':' + revision });
+  }
+
+  private reveal(): boolean {
+    const preview = this.preview;
+    if (!preview || !preview.current()) return false;
+    const editor = vscode.window.visibleTextEditors.find(({ document }) =>
+      document.uri.toString() === preview.uri.toString() && document.getText().replace(/\r\n?/g, '\n') === preview.text,
+    );
+    if (!editor) return false;
+    const line = Math.min(preview.line, editor.document.lineCount - 1);
+    editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    this.preview = undefined;
+    this.column = editor.viewColumn ?? this.column;
+    return true;
   }
 
   clear(): void {
-    this.ownNavigation = undefined;
-    this.cancelEmphasis();
-    this.editor = undefined;
-  }
-
-  cancelEmphasis(): void {
-    if (this.emphasisTimer !== undefined) clearTimeout(this.emphasisTimer);
-    this.emphasisTimer = undefined;
-    this.editor?.setDecorations(this.highlight, []);
-  }
-
-  private emphasize(editor: vscode.TextEditor, range: vscode.Range, current: () => boolean): void {
-    const document = editor.document;
-    const version = document.version;
-    const frames = vscode.workspace.getConfiguration('workbench').get<string>('reduceMotion', 'auto') === 'off'
-      ? Math.min(8, range.end.line - range.start.line + 1)
-      : 1;
-    let frame = 0;
-    const paint = (): void => {
-      this.emphasisTimer = undefined;
-      if (!current() || this.editor !== editor || document.isClosed || document.isDirty || document.version !== version) {
-        this.cancelEmphasis();
-        return;
-      }
-      frame++;
-      const end = range.start.line + Math.ceil((range.end.line - range.start.line + 1) * frame / frames) - 1;
-      editor.setDecorations(this.highlight, [new vscode.Range(range.start.line, 0, end, document.lineAt(end).text.length)]);
-      this.emphasisTimer = setTimeout(
-        frame < frames ? paint : () => this.cancelEmphasis(),
-        frame < frames ? SWEEP_MS / frames : EMPHASIS_MS,
-      );
-    };
-    paint();
+    this.preview = undefined;
+    this.documents.clear();
+    this.column = undefined;
   }
 
   dispose(): void {
     this.clear();
     this.documentChanges.dispose();
-    this.highlight.dispose();
+    this.visibleChanges.dispose();
+    this.documentCloses.dispose();
+    this.provider.dispose();
+    this.changes.dispose();
   }
 }

@@ -101,21 +101,19 @@ export interface MentionView {
   token?: string;
 }
 
-export interface FollowBannerView {
+export interface FollowToggleView {
+  phase: 'starting' | 'following' | 'paused';
+  pendingCount: number;
+  error: boolean;
+  pressed: boolean;
   label: string;
-  phase: 'following' | 'paused' | 'completed';
-  accent: 'blue' | 'purple' | 'green' | 'orange' | 'red' | 'yellow';
   toggleLabel: string;
-  stopLabel: string;
   tooltip: string;
-  context: string;
-  file?: string;
-  waitingLabel: string;
-  note?: { label: string; location: string; message: string };
+  viewLabel?: string;
 }
 
 export type ChatToWebview =
-  | { type: 'followState'; startLabel: string; follow?: FollowBannerView }
+  | { type: 'followState'; follow?: FollowToggleView }
   | { type: 'state'; state: ChatViewState }
   | { type: 'focusMessage' }
   | { type: 'attachmentData'; id: string; dataUri: string }
@@ -123,7 +121,7 @@ export type ChatToWebview =
   | { type: 'pastedAsReference'; start: number; end: number; text: string };
 
 export type ChatFromWebview =
-  | { type: 'followAction'; action: 'start' | 'pause' | 'resume' | 'stop' }
+  | { type: 'followAction'; action: 'toggle' | 'view' }
   | { type: 'ready' }
   | { type: 'pickAgent' }
   | { type: 'enableChat' }
@@ -194,7 +192,7 @@ export function parseChatFromWebview(raw: unknown): ChatFromWebview | undefined 
 
   switch (type) {
     case 'followAction':
-      return raw.action === 'start' || raw.action === 'pause' || raw.action === 'resume' || raw.action === 'stop'
+      return raw.action === 'toggle' || raw.action === 'view'
         ? { type, action: raw.action } : undefined;
     case 'selectThread':
     case 'clearThread':

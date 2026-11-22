@@ -14,14 +14,14 @@ export interface TerminalItemView {
   detail?: string;
 }
 
-export function terminalItemView(terminal: TerminalSummary, includePreview = true): TerminalItemView {
+export function terminalItemView(terminal: TerminalSummary): TerminalItemView {
   const view: TerminalItemView = {
     terminalId: terminal.id,
     label: `${terminalIcon(terminal)} ${terminal.name}`,
     description: terminalDescription(terminal),
   };
 
-  const detail = includePreview ? previewDetail(terminal.preview) : undefined;
+  const detail = previewDetail(terminal.preview);
   if (detail !== undefined) {
     view.detail = detail;
   }
