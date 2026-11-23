@@ -198,6 +198,59 @@ describe('ChatStream', () => {
     await expect(fromSocket).resolves.toMatchObject({ conversationId: 'socket' });
   });
 
+  it('não publica uma consulta HTTP iniciada em polling depois que o socket fica live', async () => {
+    let release: (() => void) | undefined;
+    let markStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => { markStarted = resolve; });
+    const server = await startWsTestServer({
+      rejectUpgrade: (_req, attempt) => (attempt <= 3 ? 503 : undefined),
+      onRequest: (req, res) => {
+        if (req.method === 'GET' && req.url === '/api/terminals/t1/chat') {
+          markStarted?.();
+          release = () => {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(chatSnapshot('poll-atrasado')));
+          };
+          return;
+        }
+        res.statusCode = 404;
+        res.end();
+      },
+    });
+    servers.push(server);
+    const stream = createStream(server, {
+      reconnectBaseMs: 10,
+      maxBackoffMs: 200,
+      pollIntervalMs: 10,
+      pollAfterFailures: 3,
+    });
+    const seen: string[] = [];
+    const off = stream.onSnapshot((snapshot) => seen.push(snapshot.conversationId));
+    try {
+      stream.start();
+      await waitForState(stream, (state) => state === 'polling');
+      await started;
+      const connection = await server.waitForConnection(1);
+      await waitForState(stream, (state) => state === 'live');
+      release?.();
+      await delay(50);
+      expect(seen).not.toContain('poll-atrasado');
+      const delivered = new Promise<void>((resolve) => {
+        const offSocket = stream.onSnapshot((snapshot) => {
+          if (snapshot.conversationId === 'socket') {
+            offSocket();
+            resolve();
+          }
+        });
+      });
+      connection.sendText(JSON.stringify({ type: 'chat', snapshot: chatSnapshot('socket') }));
+      await delivered;
+      expect(seen.at(-1)).toBe('socket');
+    } finally {
+      off();
+    }
+  });
+
   it('não deixa uma consulta HTTP antiga sobrescrever um snapshot do socket mais novo', async () => {
     let release: (() => void) | undefined;
     let markStarted: (() => void) | undefined;

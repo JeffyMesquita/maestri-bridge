@@ -100,7 +100,7 @@ export class ChatStream {
     this.setState('offline');
   }
 
-  async refresh(): Promise<void> {
+  async refresh(current: () => boolean = (): boolean => true): Promise<void> {
     const generation = this.generation;
     const socketSnapshots = this.socketSnapshots;
 
@@ -117,7 +117,7 @@ export class ChatStream {
     if (generation !== this.generation) {
       return;
     }
-    if (this.socketSnapshots !== socketSnapshots) {
+    if (this.socketSnapshots !== socketSnapshots || !current()) {
       return;
     }
     this.setSnapshot(snapshot);
@@ -256,7 +256,7 @@ export class ChatStream {
     }
 
     try {
-      await this.refresh();
+      await this.refresh(() => this.isCurrent(generation) && this.currentState === 'polling');
     } catch (error) {
       if (this.isCurrent(generation) && this.currentState === 'polling') {
         this.setState('polling', error);
