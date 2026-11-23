@@ -20,22 +20,28 @@ Use **/show** when you want the agent to explain code with highlighted lines and
 
 ## Real Windows editor demo
 
-![Native Follow: saved diff, selection pause, pending row, direct View, burst and Stop](images/follow-corrections-20261123.gif)
+![Native Follow: final 15-second burst, ending on burst/b29.mjs](images/follow-burst-final-20261123.gif)
 
-[Play the MP4](images/follow-corrections-20261123.mp4) · [Reproduce the save scenario](pair-programming/evidence/follow-native-demo/README.md) · [Native exclusion verification](pair-programming/evidence/follow-native-corrections-20261123/README.md)
+[Play the MP4](images/follow-burst-final-20261123.mp4) · [Reproduce the save scenario](pair-programming/evidence/follow-native-demo/README.md) · [Native exclusion verification](pair-programming/evidence/follow-native-corrections-20261123/README.md)
 
-The approximately 60-second clip joins seven excerpts from a real 265.767-second Windows desktop capture. Only waiting periods were removed; each excerpt plays at its original speed. The complete 1920 × 1032 VS Code window is preserved, without spatial crop, scaling, masks or overlays. The source averaged about 27.99 fps. The GIF has 1,200 frames at 20 fps (60 seconds); the MP4 has 1,799 frames at 30 fps (59.967 seconds).
+The final clip is 15 seconds (0-15) of the paired Windows host: the burst of thirty saved files ends on **burst/b29.mjs** with a single presentation in that window. **Stop was validated outside this clip**, after the recording; the clip does not show it. The window is the full 1920 × 1032 editor, without crop, scaling, masks or overlays. The GIF is 300 frames at 20 fps (1,043,773 bytes); the MP4 is 450 frames at 30 fps (228,303 bytes). The clip is real-editor evidence; it makes no continuous-playback claim.
 
-The clip shows:
+<details>
+<summary>Historical media (60 s, superseded)</summary>
 
-- A PowerShell save opening the native diff against the original session baseline.
-- A real selection pausing navigation, followed by **2 files changed · View** on its own row below the Chat header.
-- **View** opening the latest saved test file directly, with no second picker, then resuming.
-- A later saved test appearing automatically: the diff retains the one-test baseline and shows the three-test version.
-- Thirty new files ending at **burst/b29.mjs**. Intermediate previews for b0 and b24 remain visible; the recording does not claim one preview for the whole burst.
-- The header returning to the inactive **Follow** button. **Stop is inside this clip.**
+![Previous clip: saved diff, selection pause, pending row, direct View, burst and Stop](images/follow-corrections-20261123.gif)
 
-No message or prompt was sent to the Chat target. Follow observed filesystem saves directly, without an activity helper or URI. Agent names and ordinary editor notices remain authentic UI. Review used eight final full-size frames, a contact sheet and the first GIF frame; no concrete personal data was identified in those samples. This is sampled real-editor evidence, not a latency benchmark or a claim about every frame's perceived smoothness.
+[Previous MP4](images/follow-corrections-20261123.mp4)
+
+The approximately 60-second clip joined seven excerpts from a real 265.767-second Windows desktop capture. Only waiting periods were removed; each excerpt played at its original speed. The complete 1920 × 1032 VS Code window was preserved, without spatial crop, scaling, masks or overlays. The source averaged about 27.99 fps. The GIF had 1,200 frames at 20 fps (60 seconds); the MP4 had 1,799 frames at 30 fps (59.967 seconds).
+
+That recording showed a PowerShell save opening the native diff against the original session baseline, a real selection pausing navigation followed by **2 files changed · View** on its own row, **View** opening the latest saved file directly and resuming, a later save appearing automatically with the three-test version, and thirty new files ending at **burst/b29.mjs** with intermediate previews for b0 and b24. Its header returned to the inactive **Follow** button. **Stop is inside this clip.**
+
+Review of that recording used eight final full-size frames, a contact sheet and its first GIF frame; no concrete personal data was identified in those samples.
+
+</details>
+
+No message or prompt was sent to the Chat target. Follow observed filesystem saves directly, without an activity helper or URI. Agent names and ordinary editor notices remain authentic UI. The current asset was reviewed on four full-size frames, the GIF first frame and the contact sheet; no concrete personal data was identified in those samples. This is sampled real-editor evidence, not a latency benchmark or a claim about every frame's perceived smoothness.
 
 The invoice fixture passed 1/1, 2/2 and 3/3 tests at successive stages and was restored byte-for-byte after Follow was stopped. The generated burst files were removed after checking that the directory contained only those 30 synthetic files.
 
@@ -45,15 +51,22 @@ The separate development-only harness uses the product watcher and real VS Code/
 
 The helper is not installed, does not pair the Bridge, and does not change trust. The successful proof ran in a normal Extension Development Host. Failed ExtensionTests attempts with a different trust/API state are not used as passing evidence.
 
-Automated checks passed on Windows: **234 core + 297 VS Code tests = 531 passed, one skipped**, plus typecheck and build. The skipped case creates a file symlink on Windows. Tests cover text and metadata budgets, canonical roots, root replacement during reads, exclusion changes in flight, Git query failure, LRU baseline retention, creation/deletion, burst ordering and delayed/failed preview opens.
+Current checks: **235 core + 316 VS Code = 551 passed**, with 3 explicit Windows skips (two darwin-only cases and one pre-existing); `pnpm typecheck` and `pnpm build` pass, and CI run 45236149387 at `754c8aaa` is green on Ubuntu, Windows and macOS (macos-26-intel). Tests cover text and metadata budgets, canonical roots, root replacement during reads, exclusion changes in flight, Git query failure, LRU baseline retention, creation/deletion, burst ordering and delayed/failed preview opens.
 
-macOS execution, isolated focus between two applications, and clicks that preserve the selection remain manual-validation limits. An earlier Windows check kept Follow active through panel changes and minimization; it did not isolate cross-application foreground behavior.
+<details>
+<summary>Previous check (531)</summary>
+
+Earlier head: **234 core + 297 VS Code = 531 passed, one skipped** (the skipped case creates a file symlink on Windows), plus typecheck and build.
+
+</details>
+
+macOS CI runs the real filesystem with the VS Code API mocked by vitest and passed on all three OS; the macOS **GUI** was not executed. Isolated focus between two applications and clicks that preserve the selection remain manual-validation limits. An earlier Windows check kept Follow active through panel changes and minimization; it did not isolate cross-application foreground behavior.
 
 ### Português do Brasil
 
-O clipe atual mostra o editor real com a janela inteira: diff contra a baseline inicial, pausa por seleção, **2 arquivos alterados · Ver** em linha própria, **Ver** direto no último arquivo sem seletor, retomada, rajada terminando em b29 e desligamento dentro do vídeo. São sete trechos em velocidade normal, removendo só esperas, sem cortar laterais ou esconder painéis.
+O clipe final tem 15 segundos (0-15) do host Windows pareado: a rajada de trinta arquivos termina em **burst/b29.mjs** com uma única apresentação nessa janela. O **Stop foi validado fora deste clipe**, depois da gravação; o vídeo não o mostra. A janela é o editor 1920 × 1032 inteiro, sem corte, escala, máscara ou sobreposição.
 
-A prova nativa confirmou Git e files.exclude reais, 2.100 arquivos ignorados sem consumir a baseline e raiz junction. Os 531 testes passaram, com um skip no Windows, além de typecheck e build. A revisão da mídia é amostrada, sem benchmark. A rajada inclui previews intermediários; não se promete um único diff. macOS, foco isolado entre aplicativos e cliques sem mudança de seleção mantêm os limites declarados.
+A prova nativa confirmou Git e files.exclude reais, 2.100 arquivos ignorados sem consumir a baseline e raiz junction. A CI macOS roda o filesystem real com a API do VS Code mockada e passou nos três OS; a **GUI** do macOS não foi executada. Foco isolado entre aplicativos e cliques sem mudança de seleção mantêm os limites declarados. A revisão da mídia é amostrada, sem benchmark.
 
 ## Historical demonstrations
 
@@ -64,3 +77,20 @@ The [previous Windows recording](images/follow-native-demo-20261122.mp4) shows t
 In an Extension Development Host, open a trusted folder with one small text file. Start Follow and save two changes to that file from a separate terminal. Check that the left side remains the original saved content and the right side reveals the latest edit without taking focus.
 
 Change the editor selection, then save changes to two files. Check that the two-file indicator occupies its own line and use **View** to open the latest diff directly, without a file picker. Check that changes made while the diff opens and saves after resuming still appear. Repeat with a dirty buffer, a deleted file, a file outside the selected folder and a layout change. Also check a Git-ignored folder, `files.exclude`, a symlinked project root, and a burst of saves whose names sort differently from their save order.
+
+<details>
+<summary>Historical checkpoints (process log)</summary>
+
+## Validation evidence (checkpoint 2026-11-23T12:50:00Z)
+
+- Native proof (Windows, Extension Development Host): the isolated harness (`native-host/result.json`, `2026-11-23T12:06:17.688Z`-`2026-11-23T12:06:40.209Z`, nonce `mwt7zsp0c1uokx`) asserts `openedCount === 1`, a single presented filename and a single modified virtual document, both `b29.ts`, with pending 0 and phase following. It comes from the WIP of this burst correction, later consolidated in `4116936`; no executed commit SHA was verified, and the artifact is distinct from the CI wiring at `1ff2637`.
+- CI: fork `JeffyMesquita/maestri-bridge`, branch `feat/follow-burst-validation-20261123`, run `45177589816` at `1ff26378e3b4f5c6bcb7987c0118e9658d91614d` - Ubuntu, Windows and macOS all success. The macOS runner was `macos26 arm64`: 235 core + 313 VS Code tests, no skip, and the `/var/tmp` vs `/private/var/tmp` regressions ran there.
+- Windows local: 235 core passed; 310 VS Code passed with 3 explicit skips (2 darwin-only cases plus 1 pre-existing).
+- Limits: the macOS job runs the real filesystem through the VS Code API mocked by vitest; it is not a GUI run. Native GUI validation exists only for Windows. No "Mac GUI tested" claim is made.
+- Media: the previous GIF keeps its intermediate burst previews and belongs to the earlier history. At this checkpoint the replacement media was still pending and unpublished.
+
+Paired burst verification (2026-11-23T17:39:28Z-17:39:29Z): on the paired Extension Development Host with bundle `eadf57cb...d37065f`, the 30-file burst (the script sleeps 2 ms between writes; that is the requested value, not a measured cadence) produced a single presentation, `burst/b29.mjs`, result true; 30 changes, no intermediate preview. Temporary tracing was removed after the measurement.
+
+Clean bundle and second capture: shipped bundle is 391,096 bytes (sha256 `3a7983b3...dc52b1ab`, no tracing). The second capture used a clean 40 s raw (601,211 bytes, 1,123 frames) and the CLI burst at 2026-11-23T18:11:28Z-18:11:29Z. CI passed on all three OS for SHA `754c8aaa` (run 45236149387, macos-26-intel); earlier runs are historical. At that checkpoint the 15 s clip was still pending acceptance.
+
+</details>

@@ -1,0 +1,75 @@
+{
+  "task": "BRIDGE-20261120-PAIR-DESIGN",
+  "kind": "paired burst verification",
+  "when": {
+    "start": "2026-11-23T17:39:28Z",
+    "end": "2026-11-23T17:39:29Z"
+  },
+  "host": {
+    "kind": "paired Extension Development Host",
+    "bundleSha256": "eadf57cbc4e51d2fda755902e15e9b87ceb0310e6617edd9a69aad1d9d37065f",
+    "bundleBytes": 393199
+  },
+  "burst": {
+    "files": 30,
+    "scriptSleepMs": 2,
+    "note": "2 ms is the value requested from the script, not a measured write cadence"
+  },
+  "instrumentation": "temporary trace, removed after the proof",
+  "observed": {
+    "showAttempts": 1,
+    "shown": "burst/b29.mjs",
+    "shownAtPerfMs": 204236.1,
+    "showResult": true,
+    "showDoneAtPerfMs": 204336.2,
+    "changes": 30,
+    "intermediatePresentations": []
+  },
+  "passed": true,
+  "ci": {
+    "repo": "JeffyMesquita/maestri-bridge",
+    "branch": "feat/follow-burst-validation-20261123",
+    "runId": 45236149387,
+    "sha": "754c8aaa7aa4da509da36d2ace6f002de271ed1e",
+    "ubuntu": "success",
+    "windows": "success",
+    "macos": "success",
+    "macRunner": "macos-26-intel",
+    "note": "supersedes the earlier runs; 4116936 and 995871d failed on windows test/infra issues and are historical"
+  },
+  "media": {
+    "gif": {
+      "file": "docs/images/follow-burst-final-20261123.gif",
+      "bytes": 1043773,
+      "frames": 300,
+      "fps": 20,
+      "seconds": 15
+    },
+    "mp4": {
+      "file": "docs/images/follow-burst-final-20261123.mp4",
+      "bytes": 228303,
+      "frames": 450,
+      "fps": 30,
+      "seconds": 15
+    },
+    "window": "1920x1032 full",
+    "review": "4 full-size frames, GIF first frame and contact sheet",
+    "stop": "validated outside the clip",
+    "crop": false,
+    "pii": "none identified in the reviewed samples",
+    "continuousPlaybackClaim": false,
+    "accepted": true
+  },
+  "capture2": {
+    "raw": "clean 40 s",
+    "bytes": 601211,
+    "frames": 1123,
+    "cliSaves": "2026-11-23T18:11:28Z-18:11:29Z",
+    "files": 30
+  },
+  "bundle": {
+    "bytes": 391096,
+    "sha256": "3a7983b3fe93f790607038a18a77ef60e1ef69ada039a0981f55b160dc52b1ab",
+    "trace": "removed"
+  }
+}

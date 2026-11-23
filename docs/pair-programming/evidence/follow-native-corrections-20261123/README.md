@@ -33,3 +33,11 @@ The generated workspace contains a local Git repository, 2,100 ignored text file
 Keep the generated workspace, local .git directory, compiled helper, result JSON, screenshots and raw captures out of the product commit. Close the helper's Development Host when finished.
 
 The successful Windows run used a normal Extension Development Host. A separate ExtensionTests launch reported an untrusted API context despite the ordinary host's Trust management page showing the folder as trusted. Those failed runner attempts are not a passing result; no trust-disabling flag was used to obtain the successful proof.
+
+## Paired burst verification (2026-11-23T17:39:28Z-17:39:29Z)
+
+On the paired Extension Development Host running bundle `eadf57cb...d37065f` (393,199 bytes), the same 30-file burst (the script sleeps 2 ms between writes; that is the requested value, not a measured cadence) was measured with temporary tracing: one presentation attempt only, `burst/b29.mjs`, result true at perf 204236.1 and completion at 204336.2; 30 changes, no intermediate presentation. The temporary trace was removed afterwards. This is a separate proof from CI run 45177589816 (SHA `1ff2637`). New correction media remains pending and unpublished.
+
+## Clean bundle, second capture and CI
+
+The shipped bundle no longer carries tracing: 391,096 bytes, sha256 `3a7983b3fe93f790607038a18a77ef60e1ef69ada039a0981f55b160dc52b1ab`. The second capture ran a clean 40 s raw (601,211 bytes, 1,123 frames) and the CLI 30-save burst at 2026-11-23T18:11:28Z-18:11:29Z. CI for SHA `754c8aaa` (run 45236149387) passed on Ubuntu, Windows and macOS (macos-26-intel); earlier runs 4116936 and 995871d are historical failures (windows test/infra). The accepted 15 s clip (0-15) is `docs/images/follow-burst-final-20261123.gif` (300 frames, 20 fps, 1,043,773 bytes) and `.mp4` (450 frames, 30 fps, 228,303 bytes); Stop was validated outside it.

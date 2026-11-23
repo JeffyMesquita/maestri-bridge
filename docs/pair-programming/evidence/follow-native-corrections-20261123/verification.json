@@ -37,7 +37,9 @@
     "vscodePassed": 297,
     "windowsSkipped": 1,
     "typecheckExit": 0,
-    "buildExit": 0
+    "buildExit": 0,
+    "historical": true,
+    "note": "superseded by 235 core and 316 VS Code with 3 skips for the current head"
   },
   "editor": {
     "saveStagesPassingTests": [
@@ -105,13 +107,114 @@
     "spatialCrop": false,
     "scale": false,
     "masks": false,
-    "review": "eight final full-size frames, contact sheet and first GIF frame; sampled only"
+    "review": "eight final full-size frames, contact sheet and first GIF frame; sampled only",
+    "status": "historical (60 s clip, superseded by the 15 s follow-burst-final-20261123)"
   },
-  "limits": [
-    "No continuous-playback or latency benchmark claim",
-    "No single-preview burst claim",
-    "macOS not executed in this round",
-    "Cross-application focus not isolated",
-    "Clicks preserving selection remain editor-API dependent"
-  ]
+  "limits": {
+    "current": [
+      "No continuous-playback or latency benchmark claim",
+      "macOS GUI not executed (CI runs the real filesystem with the VS Code API mocked)",
+      "Cross-application focus not isolated",
+      "Clicks preserving selection remain editor-API dependent"
+    ],
+    "historical": [
+      "No single-preview burst claim (superseded by the paired one-show proof)",
+      "macOS not executed in this round (historical; macOS CI now runs)"
+    ]
+  },
+  "corrections20261123": {
+    "checkedAt": "2026-11-23T12:50:00Z",
+    "nativeProof": {
+      "kind": "isolated harness bundling the common product code; distinct from the CI wiring at 1ff2637",
+      "openedCount": 1,
+      "presented": "b29.ts",
+      "openSavedDocuments": 1,
+      "pending": 0,
+      "phase": "following",
+      "artifact": "native-host/result.json",
+      "artifactWindow": "2026-11-23T12:06:17.688Z-2026-11-23T12:06:40.209Z",
+      "nonce": "mwt7zsp0c1uokx",
+      "source": "WIP of this burst correction, later consolidated in 4116936; no executed commit SHA verified"
+    },
+    "ci": {
+      "repo": "JeffyMesquita/maestri-bridge",
+      "branch": "feat/follow-burst-validation-20261123",
+      "runId": 45177589816,
+      "sha": "1ff26378e3b4f5c6bcb7987c0118e9658d91614d",
+      "ubuntu": "success",
+      "windows": "success",
+      "macos": "success",
+      "macosRunner": "macos26 arm64",
+      "corePassed": 235,
+      "vscodePassed": 313,
+      "skipped": 0
+    },
+    "windowsLocal": {
+      "corePassed": 235,
+      "vscodePassed": 310,
+      "skipped": 3
+    },
+    "limits": "The macOS job exercises the real filesystem with the VS Code API mocked by vitest; it is not a GUI run. Native GUI validation exists only for Windows.",
+    "media": {
+      "previousGif": "historical; keeps its intermediate burst previews",
+      "newMedia": "pending, not published"
+    }
+  },
+  "pairedBurst": {
+    "when": "2026-11-23T17:39:28Z-17:39:29Z",
+    "files": 30,
+    "showAttempts": 1,
+    "shown": "burst/b29.mjs",
+    "showResult": true,
+    "changes": 30,
+    "hostBundle": "eadf57cbc4e51d2fda755902e15e9b87ceb0310e6617edd9a69aad1d9d37065f",
+    "instrumentation": "removed after the proof",
+    "scriptSleepMs": 2,
+    "note": "2 ms is the value requested from the script, not a measured write cadence"
+  },
+  "ci": {
+    "repo": "JeffyMesquita/maestri-bridge",
+    "branch": "feat/follow-burst-validation-20261123",
+    "runId": 45236149387,
+    "sha": "754c8aaa7aa4da509da36d2ace6f002de271ed1e",
+    "ubuntu": "success",
+    "windows": "success",
+    "macos": "success",
+    "macRunner": "macos-26-intel",
+    "note": "supersedes the earlier runs; 4116936 and 995871d failed on windows test/infra issues and are historical"
+  },
+  "capture2": {
+    "raw": "clean 40 s",
+    "bytes": 601211,
+    "frames": 1123,
+    "cliSaves": "2026-11-23T18:11:28Z-18:11:29Z",
+    "files": 30
+  },
+  "bundle": {
+    "bytes": 391096,
+    "sha256": "3a7983b3fe93f790607038a18a77ef60e1ef69ada039a0981f55b160dc52b1ab",
+    "trace": "removed"
+  },
+  "mediaCurrent": {
+    "gif": {
+      "file": "docs/images/follow-burst-final-20261123.gif",
+      "bytes": 1043773,
+      "frames": 300,
+      "fps": 20,
+      "seconds": 15
+    },
+    "mp4": {
+      "file": "docs/images/follow-burst-final-20261123.mp4",
+      "bytes": 228303,
+      "frames": 450,
+      "fps": 30,
+      "seconds": 15
+    },
+    "window": "1920x1032 full",
+    "review": "4 full-size frames, GIF first frame and contact sheet",
+    "stop": "validated outside the clip",
+    "crop": false,
+    "pii": "none identified in the reviewed samples",
+    "continuousPlaybackClaim": false
+  }
 }
