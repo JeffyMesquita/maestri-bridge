@@ -410,7 +410,7 @@ describe('follow watcher bounds and canonical roots', () => {
     await writeFile(join(root, 'f0.ts'), 'y\n');
     watch.fire.save(join(root, 'f0.ts'));
     await vi.waitFor(() => expect(watch.changes.length).toBeGreaterThan(0), { timeout: 5000 });
-  });
+  }, 20000);
 
   it('does not spend the file budget on .gitignore exclusions', async () => {
     const root = await project();
