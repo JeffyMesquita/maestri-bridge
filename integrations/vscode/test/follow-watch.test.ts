@@ -387,13 +387,18 @@ describe('follow watcher bounds and canonical roots', () => {
     const real = join(parent, 'real'); const link = join(parent, 'link');
     await mkdir(real); await writeFile(join(real, 'a.ts'), 'one\n');
     await symlink(real, link, process.platform === 'win32' ? 'junction' : 'dir');
+    const physical = await realpath(real);
     const watch = start(link);
     expect(await readyWithin(watch, 3000)).toBe(true);
     expect(watch.errors).toEqual([]);
-    await writeFile(join(real, 'a.ts'), 'two\n');
-    watch.fire.save(join(real, 'a.ts'));
+    await writeFile(join(physical, 'a.ts'), 'two\n');
+    watch.fire.save(join(physical, 'a.ts'));
     await vi.waitFor(() => expect(watch.changes).toHaveLength(1), { timeout: 3000 });
-    expect(watch.changes[0]).toMatchObject({ file: 'a.ts', saved: 'two\n', line: 0 });
+    expect(watch.changes[0]).toMatchObject({ file: 'a.ts', baseline: 'one\n', saved: 'two\n' });
+    await writeFile(join(link, 'a.ts'), 'three\n');
+    watch.fire.save(join(link, 'a.ts'));
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(2), { timeout: 3000 });
+    expect(watch.changes[1]).toMatchObject({ file: 'a.ts', baseline: 'one\n', saved: 'three\n' });
   });
 
   it('survives a root with more than 2000 files and still reports changes', async () => {
