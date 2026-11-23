@@ -30,6 +30,7 @@ const host = vi.hoisted(() => {
     show: vi.fn<(change: FollowChange, current: () => boolean) => Promise<boolean>>(),
     open: vi.fn<(root: unknown, handlers: FollowWatchHandlers) => { dispose: () => void }>(),
     stop: vi.fn(),
+    cancelPending: vi.fn(),
     workspace: { isTrusted: true, workspaceFolders: [] as unknown[] },
   };
 });
@@ -50,7 +51,7 @@ vi.mock('../src/follow-editor.ts', () => ({
     readonly show = host.show;
     begin(): void {}
     clear(): void {}
-    cancelPending(): void {}
+    readonly cancelPending = host.cancelPending;
     dispose(): void {}
   },
 }));
@@ -77,6 +78,105 @@ beforeEach(() => {
 });
 
 describe('AgentFollow', () => {
+  it('waits for collection and slow reads before opening only the newest change', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.activity?.(true);
+      for (let index = 0; index < 30; index++) {
+        watch.change({ ...change, file: `b${index}.ts` });
+        await vi.advanceTimersByTimeAsync(160);
+        expect(host.show).not.toHaveBeenCalled();
+      }
+      watch.activity?.(false);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledExactlyOnceWith({ ...change, file: 'b29.ts' }, expect.any(Function));
+      expect(follow.summary?.pendingCount).toBe(0);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('withdraws a scheduled preview when the watcher receives another raw event', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(60);
+      watch.activity?.(true);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(host.show).not.toHaveBeenCalled();
+      const newest = { ...change, file: 'b.ts' };
+      watch.change(newest);
+      watch.activity?.(false);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledExactlyOnceWith(newest, expect.any(Function));
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels an automatic attempt during collection without reporting a read failure', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    let release: (value: boolean) => void = () => undefined;
+    host.show.mockImplementationOnce(() => new Promise<boolean>((done) => { release = done; }));
+    host.cancelPending.mockImplementation(() => release(false));
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledOnce();
+      watch.activity?.(true);
+      expect(host.cancelPending).toHaveBeenCalledOnce();
+      const newest = { ...change, file: 'b.ts' };
+      watch.change(newest);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(host.show).toHaveBeenCalledOnce();
+      expect(follow.summary?.error).not.toBe(true);
+      watch.activity?.(false);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show.mock.calls.map(([item]) => item.file)).toEqual(['a.ts', 'b.ts']);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not revive a cancelled attempt when collection settles before its promise resumes', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    let release: (value: boolean) => void = () => undefined;
+    host.show.mockImplementationOnce(() => new Promise<boolean>((done) => { release = done; }));
+    host.cancelPending.mockImplementation(() => release(false));
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(120);
+      watch.activity(true);
+      watch.activity(false);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(follow.summary?.error).not.toBe(true);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledTimes(2);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   it('uses the matching trusted folder and stops collecting when Chat changes target', async () => {
     const follow = makeFollow();
     await follow.toggle(target);
@@ -300,5 +400,72 @@ describe('AgentFollow', () => {
     expect(follow.summary).toMatchObject({ phase: 'following', limited: true });
     expect(follow.summary?.error).not.toBe(true);
     follow.dispose();
+  });
+
+  it('drops emitted payloads when the watcher invalidates rules before the auto timer', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      watch.invalidate();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(host.show).not.toHaveBeenCalled();
+      expect(follow.summary).toMatchObject({ phase: 'following', pendingCount: 0 });
+      expect(follow.summary?.error).not.toBe(true);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels a slow View when a later keyboard selection arrives and keeps the change pending', async () => {
+    const follow = makeFollow();
+    let release: (shown: boolean) => void = () => undefined;
+    host.show.mockImplementationOnce(() => new Promise<boolean>((done) => { release = done; }));
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      host.selection.fire({ kind: 1 });
+      watch.change(change);
+      const viewing = follow.viewPending();
+      host.selection.fire({ kind: 2 });
+      expect(host.cancelPending).toHaveBeenCalled();
+      release(false);
+      await viewing;
+      expect(follow.summary).toMatchObject({ phase: 'paused', pendingCount: 1 });
+      expect(follow.summary?.error).not.toBe(true);
+    } finally {
+      follow.dispose();
+    }
+  });
+
+  it('keeps the newer attempt alive when a cancelled one resolves past its window', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    let release: (shown: boolean) => void = () => undefined;
+    host.show.mockImplementationOnce(() => new Promise<boolean>((done) => { release = done; }));
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledOnce();
+      watch.activity(true);
+      watch.activity(false);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledOnce();
+      release(true);
+      await vi.advanceTimersByTimeAsync(400);
+      expect(host.show).toHaveBeenCalledTimes(2);
+      expect(follow.summary?.pendingCount).toBe(0);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
   });
 });

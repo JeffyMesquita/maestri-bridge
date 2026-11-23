@@ -22,6 +22,8 @@ export type FollowWatchError =
 export interface FollowWatchHandlers {
   change: (change: FollowChange) => void;
   ready: () => void;
+  activity: (active: boolean) => void;
+  invalidate: () => void;
   error: (fatal: boolean, reason: FollowWatchError) => void;
 }
 
@@ -64,6 +66,20 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
   let rulesVersion = 0;
   let refreshedRules = 0;
   let repositorySeen = false;
+  let active = false;
+  let quietUntil = 0;
+
+  const announce = (next: boolean): void => {
+    if (disposed || active === next) return;
+    active = next;
+    handlers.activity(next);
+  };
+
+  const invalidate = (): void => {
+    if (disposed) return;
+    announce(true);
+    handlers.invalidate();
+  };
 
   const warn = (reason: FollowWatchError): void => {
     if (disposed || warned.has(reason)) return;
@@ -249,12 +265,18 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
         else lastSeq.delete(file);
       }
       if (queued.size > 0 || rulesVersion !== version) schedule();
+      else if (timer === undefined) announce(false);
     }
   };
 
   const schedule = (): void => {
-    if (timer !== undefined || disposed || flushing) return;
-    timer = setTimeout(() => { void flush(); }, BURST_MS);
+    if (disposed || flushing) return;
+    if (timer !== undefined) clearTimeout(timer);
+    const handle = setTimeout(() => {
+      if (timer !== handle) return;
+      void flush();
+    }, Math.max(0, quietUntil - performance.now()));
+    timer = handle;
   };
 
   const enqueue = (uri: vscode.Uri, kind: 'read' | 'delete', born = false): void => {
@@ -265,13 +287,15 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
       scanningChanged = true;
       return;
     }
-    if (basename(file) === '.gitignore') rulesVersion++;
+    if (basename(file) === '.gitignore') { rulesVersion++; invalidate(); }
     const wasKnown = known.delete(file) || baseline.has(file) || tracked.has(file);
     if (born && !wasKnown && namesComplete) created.add(file);
     known.add(file);
     queued.set(file, { kind, seq: ++seq, time: Date.now() });
     lastSeq.set(file, seq);
     trimNames();
+    quietUntil = performance.now() + BURST_MS;
+    announce(true);
     schedule();
   };
 
@@ -359,6 +383,8 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
         if (ready) {
           rulesVersion++;
           namesComplete = false;
+          invalidate();
+          quietUntil = performance.now() + BURST_MS;
           schedule();
         } else {
           scanningChanged = true;

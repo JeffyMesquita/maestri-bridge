@@ -1,10 +1,14 @@
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
-import { join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as vscode from 'vscode';
+import { AgentFollow } from '../../../../integrations/vscode/src/agent-follow.ts';
+import type { AgentMonitor } from '../../../../integrations/vscode/src/agent-monitor.ts';
 import { watchFollowFiles } from '../../../../integrations/vscode/src/follow-watch.ts';
 import type { GitApiLike } from '../../../../integrations/vscode/src/follow-excludes.ts';
+import type { ExtensionServices } from '../../../../integrations/vscode/src/services.ts';
+import type { AgentTarget } from '../../../../integrations/vscode/src/target-memory.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -30,6 +34,10 @@ export async function run(): Promise<void> {
     trusted: vscode.workspace.isTrusted,
   };
   const watched: { dispose(): void }[] = [];
+  const capture: vscode.Disposable[] = [];
+  let follow: AgentFollow | undefined;
+  let burst: string | undefined;
+  let rootPath = '';
   let temporary: string | undefined;
   try {
     if (folder === undefined) throw new Error('workspace folder missing');
@@ -37,6 +45,7 @@ export async function run(): Promise<void> {
     result.trusted = await until(() => vscode.workspace.isTrusted, 15000);
     assert.equal(result.trusted, true, 'native Git validation requires human workspace trust');
     const root = folder.uri.fsPath;
+    rootPath = root;
     await until(() => vscode.extensions.getExtension('vscode.git') !== undefined, 10000);
     const extension = vscode.extensions.getExtension<{ enabled: boolean; getAPI(version: 1): GitApiLike }>('vscode.git');
     result.gitPresent = extension !== undefined;
@@ -57,6 +66,8 @@ export async function run(): Promise<void> {
     watched.push(watchFollowFiles(folder.uri, {
       change: (change) => changes.push(change),
       ready: () => { ready = true; },
+      activity: () => undefined,
+      invalidate: () => undefined,
       error: (fatal, reason) => errors.push({ fatal, reason }),
     }));
     const isReady = await until(() => ready, 30000);
@@ -98,6 +109,8 @@ export async function run(): Promise<void> {
         const handle = watchFollowFiles(vscode.Uri.file(junction), {
           change: () => undefined,
           ready: () => { junctionReady = true; },
+          activity: () => undefined,
+          invalidate: () => undefined,
           error: () => undefined,
         });
         watched.push(handle);
@@ -107,12 +120,80 @@ export async function run(): Promise<void> {
     }
     result.junction = { ready: junctionReady };
     assert.equal(junctionReady, true, 'junction root failed readiness');
+
+    const nonce = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const base = `/burst30-${nonce}/`;
+    const isBurstPreview = (uri: vscode.Uri): boolean =>
+      uri.scheme === 'maestri-follow' && uri.query.endsWith(':saved') && uri.path.includes(base);
+    const opened: string[] = [];
+    const visible = new Set<string>();
+    capture.push(
+      vscode.workspace.onDidOpenTextDocument((document) => {
+        if (isBurstPreview(document.uri)) opened.push(document.uri.path);
+      }),
+      vscode.window.onDidChangeVisibleTextEditors((editors) => {
+        for (const editor of editors) if (isBurstPreview(editor.document.uri)) visible.add(editor.document.uri.path);
+      }),
+    );
+    const credentials = new vscode.EventEmitter<void>();
+    const services = {
+      session: { onDidChangeCredentials: credentials.event },
+    } as unknown as ExtensionServices;
+    const monitor = {
+      workspaces: [{ id: 'native-ws', name: 'native', workingDirectory: root, isLoaded: true, isLocked: false }],
+    } as unknown as AgentMonitor;
+    const target: AgentTarget = {
+      workspaceId: 'native-ws', workspaceName: 'native', terminalId: 'native-terminal', terminalName: 'native',
+    };
+    follow = new AgentFollow(services, monitor);
+    await follow.toggle(target);
+    const following = await until(() => follow?.summary?.phase === 'following', 30000);
+    result.followStarted = { following, summary: follow.summary ?? null };
+    assert.equal(following, true, 'AgentFollow never reached the following phase');
+
+    burst = join(root, `burst30-${nonce}`);
+    await mkdir(burst);
+    for (let index = 0; index < 30; index += 1) {
+      await writeFile(join(burst, `b${index}.ts`), `burst ${index}\n`);
+      if (index < 29) await sleep(20);
+    }
+    const settled = await until(() => {
+      const summary = follow?.summary;
+      return summary?.phase === 'following' && summary.pendingCount === 0 &&
+        opened.some((path) => path.endsWith('/b29.ts'));
+    }, 15000);
+    await sleep(350);
+    const summary = follow.summary;
+    const openSaved = vscode.workspace.textDocuments.filter((document) =>
+      document.uri.scheme === 'maestri-follow' && document.uri.query.endsWith(':saved') && document.uri.path.includes(base));
+    const name = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
+    const presentedNames = [...new Set(opened.map(name))];
+    result.burst = {
+      nonce, settled, phase: summary?.phase ?? null, pending: summary?.pendingCount ?? null,
+      error: summary?.error ?? null, presentedNames, openSavedDocuments: openSaved.map((document) => name(document.uri.path)),
+      visibleNames: [...new Set([...visible].map(name))], openedCount: opened.length,
+    };
+    assert.equal(settled, true, 'burst did not settle to b29 with an empty queue within 15s');
+    assert.equal(presentedNames.length, 1, 'burst presented more than one filename');
+    assert.equal(presentedNames[0], 'b29.ts', 'last presented filename was not b29.ts');
+    assert.equal(opened.length, 1, 'expected exactly one virtual document open event');
+    assert.equal(openSaved.length, 1, 'expected exactly one modified virtual document to stay open');
+    assert.equal(name(openSaved[0]?.uri.path ?? ''), 'b29.ts', 'open modified document is not b29.ts');
+    assert.equal(summary?.phase, 'following');
+    assert.equal(summary?.error ?? false, false, 'follow reported an error during the burst');
+
     result.passed = true;
   } catch (error) {
     result.failure = String(error);
   } finally {
+    follow?.dispose();
+    for (const subscription of capture) subscription.dispose();
     for (const handle of watched) handle.dispose();
     if (temporary) await rm(temporary, { recursive: true, force: true });
+    if (burst) {
+      const inside = relative(rootPath, burst);
+      if (inside !== '' && !inside.startsWith('..') && !isAbsolute(inside)) await rm(burst, { recursive: true, force: true });
+    }
     result.finishedAt = new Date().toISOString();
     await writeFile(output, `${JSON.stringify(result, null, 2)}\n`);
   }

@@ -17,6 +17,9 @@ interface FollowSession {
   phase: FollowPhase;
   pending: Map<string, number>;
   revision: number;
+  epoch: number;
+  collecting: boolean;
+  activityRevision: number;
   latest?: FollowChange;
   root?: vscode.Uri;
   watcher?: vscode.Disposable;
@@ -33,6 +36,8 @@ export class AgentFollow implements vscode.Disposable {
   private readonly editor = new FollowEditor();
   private readonly subscriptions: vscode.Disposable[];
   private session: FollowSession | undefined;
+  private selectionTick = 0;
+  private viewTick = 0;
 
   get summary(): { phase: FollowPhase; pendingCount: number; error?: boolean; errorReason?: FollowWatchError; limited?: boolean } | undefined {
     const session = this.session;
@@ -45,15 +50,18 @@ export class AgentFollow implements vscode.Disposable {
   constructor(services: ExtensionServices, private readonly monitor: AgentMonitor) {
     this.subscriptions = [
       vscode.window.onDidChangeTextEditorSelection(({ kind }) => {
-        if (kind === vscode.TextEditorSelectionChangeKind.Keyboard || kind === vscode.TextEditorSelectionChangeKind.Mouse) {
-          const session = this.session;
-          if (session?.phase === 'following') {
-            if (session.timer !== undefined) clearTimeout(session.timer);
-            session.timer = undefined;
-            session.phase = 'paused';
-            this.editor.cancelPending();
-            this.changes.fire();
-          }
+        if (kind !== vscode.TextEditorSelectionChangeKind.Keyboard && kind !== vscode.TextEditorSelectionChangeKind.Mouse) return;
+        this.selectionTick++;
+        const session = this.session;
+        if (session === undefined) return;
+        if (session.phase === 'following') {
+          if (session.timer !== undefined) clearTimeout(session.timer);
+          session.timer = undefined;
+          session.phase = 'paused';
+          this.editor.cancelPending();
+          this.changes.fire();
+        } else if (session.opening && this.selectionTick > this.viewTick) {
+          this.editor.cancelPending();
         }
       }),
       vscode.workspace.onDidChangeWorkspaceFolders(({ removed }) => {
@@ -87,7 +95,7 @@ export class AgentFollow implements vscode.Disposable {
       return;
     }
 
-    const session: FollowSession = { target, phase: 'starting', pending: new Map(), revision: 0 };
+    const session: FollowSession = { target, phase: 'starting', pending: new Map(), revision: 0, epoch: 0, collecting: false, activityRevision: 0 };
     this.session = session;
     this.changes.fire();
     try {
@@ -122,6 +130,28 @@ export class AgentFollow implements vscode.Disposable {
       session.root = folder.uri;
       this.editor.begin();
       session.watcher = watchFollowFiles(folder.uri, {
+        invalidate: () => {
+          if (this.session !== session) return;
+          session.epoch++;
+          session.pending.clear();
+          session.latest = undefined;
+          if (session.timer !== undefined) clearTimeout(session.timer);
+          session.timer = undefined;
+          this.editor.cancelPending();
+          this.changes.fire();
+        },
+        activity: (active) => {
+          if (this.session !== session) return;
+          session.collecting = active;
+          if (active) {
+            session.activityRevision++;
+            if (session.timer !== undefined) clearTimeout(session.timer);
+            session.timer = undefined;
+            if (session.phase === 'following') this.editor.cancelPending();
+          } else if (session.phase === 'following' && session.pending.size > 0) {
+            this.schedule(session);
+          }
+        },
         change: (change) => {
           if (this.session !== session) return;
           session.pending.delete(change.file);
@@ -155,7 +185,11 @@ export class AgentFollow implements vscode.Disposable {
     const change = session.latest;
     if (reviewed.length === 0 || !change) return;
     session.opening = true;
-    const current = (): boolean => this.session === session && session.phase === 'paused';
+    const epoch = session.epoch;
+    const tick = this.selectionTick;
+    this.viewTick = tick;
+    const current = (): boolean => this.session === session && session.phase === 'paused' &&
+      session.epoch === epoch && this.selectionTick === tick;
     try {
       const shown = await this.editor.show(change, current);
       if (!current()) return;
@@ -177,16 +211,21 @@ export class AgentFollow implements vscode.Disposable {
   }
 
   private schedule(session: FollowSession): void {
-    if (this.session !== session || session.phase !== 'following') return;
+    if (this.session !== session || session.phase !== 'following' || session.collecting) return;
     if (session.timer !== undefined) clearTimeout(session.timer);
-    session.timer = setTimeout(() => {
+    const handle = setTimeout(() => {
+      if (session.timer !== handle) return;
       session.timer = undefined;
       void this.drain(session);
     }, 120);
+    session.timer = handle;
   }
 
   private async drain(session: FollowSession): Promise<void> {
-    const current = (): boolean => this.session === session && session.phase === 'following';
+    const activityRevision = session.activityRevision;
+    const epoch = session.epoch;
+    const current = (): boolean => this.session === session && session.phase === 'following' &&
+      !session.collecting && session.activityRevision === activityRevision && session.epoch === epoch;
     if (!current() || session.opening) return;
     session.opening = true;
     const attemptedRevision = session.revision;
@@ -213,8 +252,9 @@ export class AgentFollow implements vscode.Disposable {
     } finally {
       session.opening = false;
       if (this.session === session && session.phase === 'paused') this.changes.fire();
-      if (current() && session.timer === undefined && session.pending.size > 0 &&
-        session.revision > attemptedRevision) this.schedule(session);
+      if (this.session === session && session.phase === 'following' && !session.collecting &&
+        session.timer === undefined && session.pending.size > 0 &&
+        (session.revision > attemptedRevision || session.activityRevision !== activityRevision)) this.schedule(session);
     }
   }
 

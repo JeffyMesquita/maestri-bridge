@@ -70,4 +70,14 @@ describe('follow file boundary', () => {
     await mkdir(join(root, 'dir.ts'));
     expect(await readFollowFile(root, 'dir.ts')).toBeUndefined();
   });
+
+  it.skipIf(process.platform !== 'darwin')('resolves /var/tmp through the real /private/var/tmp path', async () => {
+    const parent = await mkdtemp('/var/tmp/maestri-follow-');
+    temporary.push(parent);
+    await writeFile(join(parent, 'a.ts'), 'darwin\n');
+    const physical = await realpath(parent);
+    expect(physical.startsWith('/private/var/tmp/')).toBe(true);
+    expect(await resolveFollowFile(parent, 'a.ts')).toBe(join(physical, 'a.ts'));
+    expect(await readFollowFile(parent, 'a.ts')).toBe('darwin\n');
+  });
 });

@@ -94,6 +94,8 @@ async function project(): Promise<string> {
 
 function start(root: string) {
   const changes: FollowChange[] = [];
+  const activity: boolean[] = [];
+  const invalidations = { count: 0 };
   const errors: boolean[] = [];
   const reasons: string[] = [];
   let markReady: () => void = () => undefined;
@@ -101,9 +103,11 @@ function start(root: string) {
   const disposable = watchFollowFiles({ fsPath: root } as never, {
     change: (change) => changes.push(change),
     ready: markReady,
+    activity: (active) => activity.push(active),
+    invalidate: () => { invalidations.count += 1; },
     error: (fatal, reason) => { errors.push(fatal); reasons.push(reason); },
   });
-  return { changes, errors, reasons, ready, disposable, fire: {
+  return { changes, activity, invalidations, errors, reasons, ready, disposable, fire: {
     create: (path: string) => mock.listeners.create.forEach((fn) => fn({ fsPath: path })),
     save: (path: string) => mock.listeners.change.forEach((fn) => fn({ fsPath: path })),
     delete: (path: string) => mock.listeners.delete.forEach((fn) => fn({ fsPath: path })),
@@ -641,4 +645,145 @@ describe('follow watcher policy and baseline invariants', () => {
     expect(watch.changes).toEqual([{ file: 'new.ts', baseline: undefined, saved: 'first', line: 0 }]);
     watch.disposable.dispose();
   });
+});
+
+describe('follow watcher presentation bursts', () => {
+  const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it('opens once for a continuous burst and waits for 90ms of quiet after the last save', async () => {
+    const root = await project();
+    for (let index = 0; index < 4; index++) await writeFile(join(root, `s${index}.ts`), 'old');
+    const watch = start(root);
+    await watch.ready;
+    for (let index = 0; index < 4; index++) {
+      await writeFile(join(root, `s${index}.ts`), 'new');
+      watch.fire.save(join(root, `s${index}.ts`));
+      if (index < 3) await pause(20);
+    }
+    expect(watch.activity).toEqual([true]);
+    expect(watch.changes).toEqual([]);
+    await pause(40);
+    expect(watch.activity).toEqual([true]);
+    expect(watch.changes).toEqual([]);
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(4), { timeout: 5000 });
+    expect(watch.activity).toEqual([true, false]);
+    watch.disposable.dispose();
+  });
+
+  it('keeps the presentation open when a save lands during a slow native lookup', async () => {
+    const root = await project();
+    const a = join(root, 'a.ts');
+    const b = join(root, 'b.ts');
+    await writeFile(a, 'one');
+    await writeFile(b, 'one');
+    const watch = start(root);
+    await watch.ready;
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    await writeFile(a, 'two');
+    watch.fire.save(a);
+    expect(watch.activity).toEqual([true]);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    await writeFile(b, 'two');
+    watch.fire.save(b);
+    expect(watch.activity).toEqual([true]);
+    release([{ fsPath: a }]);
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(2), { timeout: 5000 });
+    expect(watch.activity).toEqual([true, false]);
+    watch.disposable.dispose();
+  });
+
+  it('does not release the presentation after dispose during an in-flight flush', async () => {
+    const root = await project();
+    const file = join(root, 'a.ts');
+    await writeFile(file, 'one');
+    const watch = start(root);
+    await watch.ready;
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    await writeFile(file, 'two');
+    watch.fire.save(file);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    watch.disposable.dispose();
+    release([{ fsPath: file }]);
+    await settle();
+    expect(watch.activity).toEqual([true]);
+    expect(watch.changes).toEqual([]);
+  });
+});
+
+describe('follow watcher rule invalidation', () => {
+  it('invalidates and signals collection for a configuration-only change', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    mock.configuration.forEach((listener) => listener());
+    expect(watch.invalidations.count).toBe(1);
+    expect(watch.activity).toEqual([true]);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]));
+    watch.disposable.dispose();
+  });
+
+  it('invalidates a queued save when excludes change during a blocked refresh', async () => {
+    const root = await project();
+    const file = join(root, 'a.ts');
+    await writeFile(file, 'one');
+    const watch = start(root);
+    await watch.ready;
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    await writeFile(file, 'two');
+    watch.fire.save(file);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2));
+    mock.excluded.push('a.ts');
+    mock.configuration.forEach((listener) => listener());
+    expect(watch.invalidations.count).toBe(1);
+    release([{ fsPath: file }]);
+    await settle();
+    expect(watch.changes).toEqual([]);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]));
+    watch.disposable.dispose();
+  });
+
+  it('times the quiet window on a monotonic clock when the civil clock jumps back', async () => {
+    const root = await project();
+    const file = join(root, 'a.ts');
+    const other = join(root, 'b.ts');
+    await writeFile(file, 'one');
+    await writeFile(other, 'one');
+    const watch = start(root);
+    await watch.ready;
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    try {
+      await writeFile(file, 'two');
+      watch.fire.save(file);
+      await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2));
+      await writeFile(other, 'two');
+      watch.fire.save(other);
+      spy.mockReturnValue(1_700_000_000_000 - 30_000);
+      release([{ fsPath: file }]);
+      await vi.waitFor(() => expect(watch.changes.map(({ file: name }) => name)).toContain('b.ts'), { timeout: 3000 });
+    } finally {
+      spy.mockRestore();
+      watch.disposable.dispose();
+    }
+  });
+
+  it.skipIf(process.platform !== 'darwin')('watches a /var/tmp alias root through the real /private/var/tmp path', async () => {
+    const root = await mkdtemp('/var/tmp/maestri-watch-');
+    temporary.push(root);
+    await writeFile(join(root, 'a.ts'), 'one\n');
+    const physical = await realpath(root);
+    expect(physical.startsWith('/private/var/tmp/')).toBe(true);
+    const watch = start(root);
+    await watch.ready;
+    expect(watch.errors).toEqual([]);
+    await writeFile(join(physical, 'a.ts'), 'two\n');
+    watch.fire.save(join(physical, 'a.ts'));
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(1), { timeout: 15000 });
+    expect(watch.changes[0]).toMatchObject({ file: 'a.ts', baseline: 'one\n', saved: 'two\n' });
+    watch.disposable.dispose();
+  }, 30000);
 });
