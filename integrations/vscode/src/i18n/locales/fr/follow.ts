@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "Suivre un agent",
+  "follow.title": "Suivre les modifications enregistrées",
   "follow.unavailable": "Sélectionnez un agent dans le chat et ouvrez un projet local approuvé pour utiliser le suivi.",
   "follow.openFolder": "Ouvrez un dossier de projet local.",
   "follow.chooseRoot": "Choisir la racine du projet",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "Échec de la dernière mise à jour du suivi.",
   "follow.view": "Afficher",
   "follow.readFailed": "Impossible de lire le contenu le plus récent du fichier suivi.",
+  "follow.rootUnavailable": "La racine du projet suivi n'est plus disponible. Le suivi est arrêté.",
+  "follow.rootChanged": "La racine du projet suivi a changé. Le suivi est arrêté.",
+  "follow.snapshotFailed": "Impossible de préparer la copie du dossier pour le diff le plus récent.",
+  "follow.snapshotLimited": "La copie est partielle ; les fichiers hors baseline utilisent les enregistrements antérieurs lorsqu'ils sont disponibles, et le premier enregistrement sans historique établit la référence.",
 };

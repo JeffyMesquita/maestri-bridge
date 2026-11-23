@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory)]
-  [ValidateSet('First','Paused','Resume')]
+  [ValidateSet('First','Paused','Resume','Burst')]
   [string]$Step
 )
 
@@ -10,6 +10,15 @@ $testPath = Join-Path $fixture 'invoice.test.mjs'
 $utf8 = [Text.UTF8Encoding]::new($false)
 
 switch ($Step) {
+  'Burst' {
+    $burstPath = Join-Path $fixture 'burst'
+    if (Test-Path -LiteralPath $burstPath) { throw 'Burst fixture already exists; preserve it before another run.' }
+    New-Item -ItemType Directory -Path $burstPath | Out-Null
+    for ($index = 0; $index -lt 30; $index++) {
+      [IO.File]::WriteAllText((Join-Path $burstPath "b$index.mjs"), "export const sequence = $index;`n", $utf8)
+      Start-Sleep -Milliseconds 2
+    }
+  }
   'First' {
     $source = [IO.File]::ReadAllText($sourcePath)
     if (!$source.Contains('return subtotal;')) { throw 'Start with the original invoice fixture.' }

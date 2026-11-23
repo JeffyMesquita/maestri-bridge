@@ -1,0 +1,117 @@
+{
+  "task": "BRIDGE-20261120-PAIR-DESIGN",
+  "platform": "win32",
+  "vscode": "1.147.0",
+  "native": {
+    "runner": "temporary development-only extension in normal Extension Development Host",
+    "startedAt": "2026-11-23T10:25:41.041Z",
+    "finishedAt": "2026-11-23T10:25:50.400Z",
+    "trusted": true,
+    "gitPresent": true,
+    "gitEnabled": true,
+    "gitRepository": true,
+    "gitIgnoredProbeCount": 1,
+    "ready": {
+      "fired": true,
+      "fatal": false,
+      "errors": []
+    },
+    "ignoredSave": {
+      "changes": 0
+    },
+    "excludedSave": {
+      "changes": 0
+    },
+    "eligibleSave": {
+      "count": 1,
+      "file": "legit.ts",
+      "baselinePreserved": true
+    },
+    "junction": {
+      "ready": true
+    },
+    "passed": true
+  },
+  "automated": {
+    "corePassed": 234,
+    "vscodePassed": 297,
+    "windowsSkipped": 1,
+    "typecheckExit": 0,
+    "buildExit": 0
+  },
+  "editor": {
+    "saveStagesPassingTests": [
+      1,
+      2,
+      3
+    ],
+    "pendingRow": "below Chat header",
+    "view": "direct latest file, no second picker",
+    "burstLastFile": "burst/b29.mjs",
+    "burstIntermediatePreviews": [
+      "burst/b0.mjs",
+      "burst/b24.mjs"
+    ],
+    "stopInRecording": true
+  },
+  "media": {
+    "width": 1920,
+    "height": 1032,
+    "sourceSeconds": 265.766667,
+    "sourceFrames": 7443,
+    "mp4": {
+      "duration": 59.966667,
+      "frames": 1799,
+      "fps": 30,
+      "bytes": 1189061
+    },
+    "gif": {
+      "duration": 60,
+      "frames": 1200,
+      "fps": 20,
+      "bytes": 4935358
+    },
+    "rawRanges": [
+      [
+        25,
+        31
+      ],
+      [
+        54,
+        60
+      ],
+      [
+        92,
+        101
+      ],
+      [
+        134,
+        143
+      ],
+      [
+        167,
+        175
+      ],
+      [
+        206,
+        222
+      ],
+      [
+        258,
+        264
+      ]
+    ],
+    "speed": 1,
+    "spatialCrop": false,
+    "scale": false,
+    "masks": false,
+    "review": "eight final full-size frames, contact sheet and first GIF frame; sampled only"
+  },
+  "limits": [
+    "No continuous-playback or latency benchmark claim",
+    "No single-preview burst claim",
+    "macOS not executed in this round",
+    "Cross-application focus not isolated",
+    "Clicks preserving selection remain editor-API dependent"
+  ]
+}

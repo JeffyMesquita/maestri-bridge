@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "Seguir agente",
+  "follow.title": "Seguir cambios guardados",
   "follow.unavailable": "Selecciona un agente en el chat y abre un proyecto local de confianza para usar el seguimiento.",
   "follow.openFolder": "Abre primero una carpeta de proyecto local.",
   "follow.chooseRoot": "Elige la raíz del proyecto",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "Error en la última actualización del seguimiento.",
   "follow.view": "Ver",
   "follow.readFailed": "No se pudo leer el contenido más reciente del archivo seguido.",
+  "follow.rootUnavailable": "La raíz del proyecto seguido ya no está disponible. Seguimiento detenido.",
+  "follow.rootChanged": "La raíz del proyecto seguido cambió. Seguimiento detenido.",
+  "follow.snapshotFailed": "No se pudo preparar la instantánea de la carpeta para el diff más reciente.",
+  "follow.snapshotLimited": "La instantánea es parcial; los archivos fuera de la línea base usan guardados anteriores cuando están disponibles, y el primer guardado sin historial establece la referencia.",
 };

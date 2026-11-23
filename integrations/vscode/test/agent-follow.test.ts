@@ -1,4 +1,7 @@
 import { resolve } from 'node:path';
+import { mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentFollow } from '../src/agent-follow.ts';
 import type { FollowChange, FollowWatchHandlers } from '../src/follow-watch.ts';
@@ -47,6 +50,7 @@ vi.mock('../src/follow-editor.ts', () => ({
     readonly show = host.show;
     begin(): void {}
     clear(): void {}
+    cancelPending(): void {}
     dispose(): void {}
   },
 }));
@@ -121,6 +125,180 @@ describe('AgentFollow', () => {
     await follow.toggle(target);
     expect(host.pick).toHaveBeenCalledOnce();
     expect(host.open).not.toHaveBeenCalled();
+    follow.dispose();
+  });
+
+  it('views the newest pending file directly without opening another picker', async () => {
+    const follow = makeFollow();
+    await follow.toggle(target);
+    const watch = host.open.mock.calls[0]![1];
+    watch.ready();
+    host.selection.fire({ kind: 1 });
+    watch.change(change);
+    const latest = { ...change, file: 'b.ts', saved: 'newest' };
+    watch.change(latest);
+    await follow.viewPending();
+    expect(host.pick).not.toHaveBeenCalled();
+    expect(host.show).toHaveBeenCalledExactlyOnceWith(latest, expect.any(Function));
+    expect(follow.summary).toMatchObject({ phase: 'following', pendingCount: 0 });
+    follow.dispose();
+  });
+
+  it('bounds pending identities while preserving the latest change for View', async () => {
+    const follow = makeFollow();
+    await follow.toggle(target);
+    const watch = host.open.mock.calls[0]![1];
+    watch.ready();
+    host.selection.fire({ kind: 1 });
+    for (let index = 0; index < 20001; index++) watch.change({ ...change, file: `f${index}.ts` });
+    expect(follow.summary).toMatchObject({ phase: 'paused', pendingCount: 20000, limited: true });
+    await follow.viewPending();
+    expect(host.show.mock.lastCall?.[0].file).toBe('f20000.ts');
+    expect(follow.summary).toMatchObject({ phase: 'following', pendingCount: 0 });
+    follow.dispose();
+  });
+
+  it('coalesces a thirty-file burst to the last event rather than filename order', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      for (let index = 0; index < 30; index++) watch.change({ ...change, file: `b${index}.ts` });
+      await vi.advanceTimersByTimeAsync(200);
+      expect(host.show).toHaveBeenCalledExactlyOnceWith({ ...change, file: 'b29.ts' }, expect.any(Function));
+      expect(follow.summary?.pendingCount).toBe(0);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the latest save that arrives while a preview is opening', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    let release: (shown: boolean) => void = () => undefined;
+    host.show.mockImplementationOnce(() => new Promise<boolean>((done) => { release = done; }));
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(200);
+      watch.change({ ...change, file: 'b.ts' });
+      const latest = { ...change, file: 'c.ts', saved: 'last' };
+      watch.change(latest);
+      release(true);
+      await vi.advanceTimersByTimeAsync(300);
+      expect(host.show.mock.calls.map(([item]) => item.file)).toEqual(['a.ts', 'c.ts']);
+      expect(host.show.mock.lastCall?.[0]).toEqual(latest);
+      expect(follow.summary?.pendingCount).toBe(0);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not busy-loop an unavailable preview until another save arrives', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    host.show.mockResolvedValueOnce(false);
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(host.show).toHaveBeenCalledOnce();
+      watch.change({ ...change, saved: 'retry' });
+      await vi.advanceTimersByTimeAsync(200);
+      expect(host.show).toHaveBeenCalledTimes(2);
+      expect(follow.summary?.pendingCount).toBe(0);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries a failed automatic preview only when a newer save arrived during the attempt', async () => {
+    vi.useFakeTimers();
+    const follow = makeFollow();
+    let release: (shown: boolean) => void = () => undefined;
+    host.show
+      .mockImplementationOnce(() => new Promise<boolean>((resolve) => { release = resolve; }))
+      .mockResolvedValueOnce(false);
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      watch.change(change);
+      await vi.advanceTimersByTimeAsync(120);
+      const newest = { ...change, saved: 'newest' };
+      watch.change(newest);
+      await vi.advanceTimersByTimeAsync(120);
+      expect(host.show).toHaveBeenCalledOnce();
+      release(false);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(host.show.mock.calls.map(([item]) => item)).toEqual([change, newest]);
+    } finally {
+      follow.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  it('reports a failed View and keeps the change pending while paused', async () => {
+    const follow = makeFollow();
+    try {
+      await follow.toggle(target);
+      const watch = host.open.mock.calls[0]![1];
+      watch.ready();
+      host.selection.fire({ kind: 1 });
+      watch.change(change);
+      host.show.mockResolvedValueOnce(false);
+      await follow.viewPending();
+      expect(follow.summary).toMatchObject({ phase: 'paused', pendingCount: 1, errorReason: 'readFailed' });
+    } finally {
+      follow.dispose();
+    }
+  });
+
+  it('matches an open symlink folder to the mapped physical root', async () => {
+    const temporary = await mkdtemp(join(tmpdir(), 'follow-map-'));
+    const physical = join(temporary, 'actual');
+    const link = join(temporary, 'linked');
+    await mkdir(physical);
+    await symlink(physical, link, process.platform === 'win32' ? 'junction' : 'dir');
+    const linked = { name: 'linked', uri: { scheme: 'file', fsPath: link, toString: () => link } };
+    host.workspace.workspaceFolders = [linked];
+    const follow = makeFollow(await realpath(physical));
+    try {
+      await follow.toggle(target);
+      expect(host.pick).not.toHaveBeenCalled();
+      expect(host.open.mock.calls[0]?.[0]).toBe(linked.uri);
+    } finally {
+      follow.dispose();
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it.each(['rootUnavailable', 'rootChanged', 'snapshotFailed'] as const)('reports the actual fatal reason %s', async (reason) => {
+    const follow = makeFollow();
+    await follow.toggle(target);
+    host.open.mock.calls[0]![1].error(true, reason);
+    expect(follow.summary).toBeUndefined();
+    expect(host.warning).toHaveBeenCalledExactlyOnceWith(`follow.${reason}`);
+    follow.dispose();
+  });
+
+  it('keeps following with a partial snapshot without claiming a read error', async () => {
+    const follow = makeFollow();
+    await follow.toggle(target);
+    const watch = host.open.mock.calls[0]![1];
+    watch.error(false, 'snapshotLimited');
+    watch.ready();
+    expect(follow.summary).toMatchObject({ phase: 'following', limited: true });
+    expect(follow.summary?.error).not.toBe(true);
     follow.dispose();
   });
 });

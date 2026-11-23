@@ -1,24 +1,30 @@
 import { isAbsolute, relative } from 'node:path';
+import { realpath } from 'node:fs/promises';
 import * as vscode from 'vscode';
 import type { AgentMonitor } from './agent-monitor.ts';
 import { FollowEditor } from './follow-editor.ts';
 import { watchFollowFiles } from './follow-watch.ts';
-import type { FollowChange } from './follow-watch.ts';
+import type { FollowChange, FollowWatchError } from './follow-watch.ts';
 import { t } from './i18n/index.ts';
 import type { ExtensionServices } from './services.ts';
 import type { AgentTarget } from './target-memory.ts';
 
 type FollowPhase = 'starting' | 'following' | 'paused';
+const PENDING_LIMIT = 20000;
 
 interface FollowSession {
   target: AgentTarget;
   phase: FollowPhase;
-  pending: Map<string, FollowChange>;
+  pending: Map<string, number>;
+  revision: number;
+  latest?: FollowChange;
   root?: vscode.Uri;
   watcher?: vscode.Disposable;
   error?: boolean;
+  errorReason?: FollowWatchError;
+  limited?: boolean;
   opening?: boolean;
-  choosing?: boolean;
+  timer?: ReturnType<typeof setTimeout>;
 }
 
 export class AgentFollow implements vscode.Disposable {
@@ -28,9 +34,12 @@ export class AgentFollow implements vscode.Disposable {
   private readonly subscriptions: vscode.Disposable[];
   private session: FollowSession | undefined;
 
-  get summary(): { phase: FollowPhase; pendingCount: number; error?: boolean } | undefined {
+  get summary(): { phase: FollowPhase; pendingCount: number; error?: boolean; errorReason?: FollowWatchError; limited?: boolean } | undefined {
     const session = this.session;
-    return session && { phase: session.phase, pendingCount: session.pending.size, error: session.error };
+    return session && {
+      phase: session.phase, pendingCount: session.pending.size, error: session.error,
+      errorReason: session.errorReason, limited: session.limited,
+    };
   }
 
   constructor(services: ExtensionServices, private readonly monitor: AgentMonitor) {
@@ -39,7 +48,10 @@ export class AgentFollow implements vscode.Disposable {
         if (kind === vscode.TextEditorSelectionChangeKind.Keyboard || kind === vscode.TextEditorSelectionChangeKind.Mouse) {
           const session = this.session;
           if (session?.phase === 'following') {
+            if (session.timer !== undefined) clearTimeout(session.timer);
+            session.timer = undefined;
             session.phase = 'paused';
+            this.editor.cancelPending();
             this.changes.fire();
           }
         }
@@ -75,7 +87,7 @@ export class AgentFollow implements vscode.Disposable {
       return;
     }
 
-    const session: FollowSession = { target, phase: 'starting', pending: new Map() };
+    const session: FollowSession = { target, phase: 'starting', pending: new Map(), revision: 0 };
     this.session = session;
     this.changes.fire();
     try {
@@ -83,9 +95,19 @@ export class AgentFollow implements vscode.Disposable {
       const mappedPath = target.floorId === undefined || target.floorId === 'ground'
         ? workspace?.workingDirectory
         : undefined;
-      const mapped = mappedPath && isAbsolute(mappedPath)
-        ? folders.find(({ uri }) => relative(uri.fsPath, mappedPath) === '')
-        : undefined;
+      let mapped: typeof folders[number] | undefined;
+      if (mappedPath && isAbsolute(mappedPath)) {
+        let physical: string | undefined;
+        try { physical = await realpath(mappedPath); } catch {}
+        for (const candidate of folders) {
+          if (relative(candidate.uri.fsPath, mappedPath) === '') { mapped = candidate; break; }
+          if (physical === undefined) continue;
+          try {
+            if (relative(await realpath(candidate.uri.fsPath), physical) === '') { mapped = candidate; break; }
+          } catch {}
+        }
+      }
+      if (this.session !== session) return;
       const folder = mapped ?? (await vscode.window.showQuickPick(
         folders.map((item) => ({ label: item.name, description: item.uri.fsPath, folder: item })),
         { title: t('follow.chooseRoot') },
@@ -103,88 +125,122 @@ export class AgentFollow implements vscode.Disposable {
         change: (change) => {
           if (this.session !== session) return;
           session.pending.delete(change.file);
-          session.pending.set(change.file, change);
+          session.pending.set(change.file, ++session.revision);
+          session.latest = change;
+          if (session.pending.size > PENDING_LIMIT) {
+            const oldest = session.pending.keys().next().value;
+            if (oldest !== undefined) session.pending.delete(oldest);
+            this.reportError(session, false, 'snapshotLimited');
+          }
           if (session.phase === 'paused') this.changes.fire();
-          if (session.phase === 'following') void this.drain(session);
+          if (session.phase === 'following') this.schedule(session);
         },
         ready: () => {
           if (this.session !== session) return;
           session.phase = 'following';
           this.changes.fire();
-          void this.drain(session);
+          if (session.pending.size > 0) this.schedule(session);
         },
-        error: (fatal) => this.reportError(session, fatal),
+        error: (fatal, reason) => this.reportError(session, fatal, reason),
       });
     } catch {
-      this.reportError(session, true);
+      this.reportError(session, true, 'snapshotFailed');
     }
   }
 
   async viewPending(): Promise<void> {
     const session = this.session;
-    if (session?.phase !== 'paused' || session.choosing || session.opening) return;
-    const candidates = [...session.pending.values()].reverse();
-    if (candidates.length === 0) return;
-    session.choosing = true;
+    if (session?.phase !== 'paused' || session.opening) return;
+    const reviewed = [...session.pending];
+    const change = session.latest;
+    if (reviewed.length === 0 || !change) return;
+    session.opening = true;
     const current = (): boolean => this.session === session && session.phase === 'paused';
     try {
-      const chosen = candidates.length === 1 ? candidates[0] : (await vscode.window.showQuickPick(
-        candidates.map(({ file }) => ({ label: file })),
-        { title: t('follow.view') },
-      ));
-      if (!chosen || !current()) return;
-      const file = 'file' in chosen ? chosen.file : chosen.label;
-      const change = session.pending.get(file);
-      if (!change) return;
-      const reviewed = [...session.pending.values()];
-      if (!(await this.editor.show(change, current)) || !current()) return;
+      const shown = await this.editor.show(change, current);
+      if (!current()) return;
+      if (!shown) {
+        this.reportError(session, false, 'readFailed');
+        return;
+      }
       this.acknowledge(session, reviewed);
       session.phase = 'following';
       session.error = false;
+      session.errorReason = undefined;
       this.changes.fire();
     } catch {
-      this.reportError(session, false);
+      if (current()) this.reportError(session, false, 'readFailed');
     } finally {
-      session.choosing = false;
-      if (current() || this.session === session) void this.drain(session);
+      session.opening = false;
+      if (this.session === session && session.phase === 'following' && session.pending.size > 0) this.schedule(session);
     }
+  }
+
+  private schedule(session: FollowSession): void {
+    if (this.session !== session || session.phase !== 'following') return;
+    if (session.timer !== undefined) clearTimeout(session.timer);
+    session.timer = setTimeout(() => {
+      session.timer = undefined;
+      void this.drain(session);
+    }, 120);
   }
 
   private async drain(session: FollowSession): Promise<void> {
     const current = (): boolean => this.session === session && session.phase === 'following';
-    if (!current() || session.opening || session.choosing) return;
+    if (!current() || session.opening) return;
     session.opening = true;
+    const attemptedRevision = session.revision;
     try {
-      for (const item of session.pending.values()) {
-        if (!current()) break;
-        if (!(await this.editor.show(item, current)) || !current()) break;
-        this.acknowledge(session, [item]);
+      const reviewed = [...session.pending];
+      const item = session.latest;
+      if (reviewed.length === 0 || !item) return;
+      const shown = await this.editor.show(item, current);
+      if (!current()) return;
+      if (!shown) {
+        this.reportError(session, false, 'readFailed');
+        return;
+      }
+      if (current()) {
+        this.acknowledge(session, reviewed);
         if (session.error) {
           session.error = false;
+          session.errorReason = undefined;
           this.changes.fire();
         }
       }
     } catch {
-      this.reportError(session, false);
+      if (current()) this.reportError(session, false, 'readFailed');
     } finally {
       session.opening = false;
       if (this.session === session && session.phase === 'paused') this.changes.fire();
+      if (current() && session.timer === undefined && session.pending.size > 0 &&
+        session.revision > attemptedRevision) this.schedule(session);
     }
   }
 
-  private acknowledge(session: FollowSession, items: readonly FollowChange[]): void {
-    for (const item of items) {
-      if (session.pending.get(item.file) === item) session.pending.delete(item.file);
+  private acknowledge(session: FollowSession, items: readonly (readonly [string, number])[]): void {
+    for (const [file, revision] of items) {
+      if (session.pending.get(file) === revision) session.pending.delete(file);
     }
+    if (session.pending.size === 0) session.latest = undefined;
   }
 
-  private reportError(session: FollowSession, fatal: boolean): void {
+  private reportError(session: FollowSession, fatal: boolean, reason: FollowWatchError): void {
     if (this.session !== session) return;
+    if (reason === 'snapshotLimited') {
+      if (!session.limited) {
+        session.limited = true;
+        void vscode.window.showWarningMessage(t('follow.snapshotLimited'));
+        this.changes.fire();
+      }
+      return;
+    }
     if (fatal) {
       this.stop();
-      void vscode.window.showWarningMessage(t('follow.readFailed'));
+      void vscode.window.showWarningMessage(t(`follow.${reason}`));
     } else if (!session.error) {
       session.error = true;
+      session.errorReason = reason;
       this.changes.fire();
     }
   }
@@ -193,6 +249,7 @@ export class AgentFollow implements vscode.Disposable {
     const session = this.session;
     if (!session) return;
     this.session = undefined;
+    if (session.timer !== undefined) clearTimeout(session.timer);
     session.watcher?.dispose();
     this.editor.clear();
     this.changes.fire();

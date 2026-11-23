@@ -2,12 +2,15 @@ import * as vscode from 'vscode';
 import type { FollowChange } from './follow-watch.ts';
 
 const scheme = 'maestri-follow';
+const revealTimeoutMs = 1200;
 
 interface Preview {
+  attempt: number;
   uri: vscode.Uri;
   text: string;
   line: number;
   current: () => boolean;
+  finish: (shown: boolean) => void;
 }
 
 export class FollowEditor implements vscode.Disposable {
@@ -23,6 +26,7 @@ export class FollowEditor implements vscode.Disposable {
   });
   private readonly visibleChanges = vscode.window.onDidChangeVisibleTextEditors(() => this.reveal());
   private session = 0;
+  private attempt = 0;
   private column: vscode.ViewColumn | undefined;
   private preview: Preview | undefined;
 
@@ -35,51 +39,100 @@ export class FollowEditor implements vscode.Disposable {
       : group.viewColumn;
   }
 
-  async show(change: FollowChange, current: () => boolean): Promise<boolean> {
-    if (!current()) return false;
+  show(change: FollowChange, current: () => boolean): Promise<boolean> {
+    if (!current()) return Promise.resolve(false);
+    this.cancelPending();
     const before = this.uri(change.file, 'initial');
     const after = this.uri(change.file, 'saved');
+    const baseline = change.baseline ?? '';
     const text = (change.saved ?? '').replace(/\r\n?/g, '\n');
-    const preview = { uri: after, text, line: change.line, current };
-    this.preview = preview;
-    this.documents.set(before.toString(), change.baseline ?? '');
-    const previous = this.documents.get(after.toString());
+    const previousBaseline = this.documents.get(before.toString());
+    const previousSaved = this.documents.get(after.toString());
+    this.documents.set(before.toString(), baseline);
     this.documents.set(after.toString(), text);
-    if (previous !== undefined && previous !== text) this.changes.fire(after);
 
-    if (!this.reveal()) {
-      await vscode.commands.executeCommand('vscode.diff', before, after, change.file, {
-        preserveFocus: true,
-        preview: true,
-        viewColumn: this.column,
-      });
-      this.reveal();
+    return new Promise((resolve) => {
+      const preview: Preview = {
+        attempt: ++this.attempt, uri: after, text, line: change.line, current,
+        finish: (shown) => {
+          if (this.preview !== preview) return;
+          this.preview = undefined;
+          clearTimeout(timeout);
+          if (!shown) {
+            this.restore(before, baseline, previousBaseline);
+            this.restore(after, text, previousSaved);
+          }
+          resolve(shown);
+        },
+      };
+      this.preview = preview;
+      const timeout = setTimeout(() => preview.finish(false), revealTimeoutMs);
+      try {
+        if (previousSaved !== undefined && previousSaved !== text) this.changes.fire(after);
+        if (this.reveal(preview) || this.preview !== preview) return;
+        this.openDiff(before, after, change.file, preview.attempt);
+      } catch {
+        preview.finish(false);
+      }
+    });
+  }
+
+  private openDiff(before: vscode.Uri, after: vscode.Uri, file: string, attempt: number): void {
+    void Promise.resolve(vscode.commands.executeCommand('vscode.diff', before, after, file, {
+      preserveFocus: true,
+      preview: true,
+      viewColumn: this.column,
+    })).then(() => {
+      if (this.preview?.attempt === attempt) this.reveal();
+    }).catch(() => {
+      if (this.preview?.attempt === attempt) this.cancelPending();
+    });
+  }
+
+  private restore(uri: vscode.Uri, text: string, previous: string | undefined): void {
+    const key = uri.toString();
+    if (this.documents.get(key) !== text || previous === text) return;
+    if (previous === undefined) {
+      this.documents.delete(key);
+    } else {
+      this.documents.set(key, previous);
+      this.changes.fire(uri);
     }
-
-    return current();
   }
 
   private uri(file: string, revision: 'initial' | 'saved'): vscode.Uri {
     return vscode.Uri.from({ scheme, path: '/' + file, query: this.session + ':' + revision });
   }
 
-  private reveal(): boolean {
-    const preview = this.preview;
-    if (!preview || !preview.current()) return false;
+  private reveal(preview = this.preview): boolean {
+    if (!preview || this.preview !== preview) return false;
+    if (!preview.current()) {
+      preview.finish(false);
+      return false;
+    }
     const editor = vscode.window.visibleTextEditors.find(({ document }) =>
       document.uri.toString() === preview.uri.toString() && document.getText().replace(/\r\n?/g, '\n') === preview.text,
     );
     if (!editor) return false;
-    const line = Math.min(preview.line, editor.document.lineCount - 1);
-    editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-    this.preview = undefined;
-    this.column = editor.viewColumn ?? this.column;
-    return true;
+    try {
+      const line = Math.min(preview.line, editor.document.lineCount - 1);
+      editor.revealRange(new vscode.Range(line, 0, line, 0), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+      this.column = editor.viewColumn ?? this.column;
+      preview.finish(true);
+      return true;
+    } catch {
+      preview.finish(false);
+      return false;
+    }
+  }
+
+  cancelPending(): void {
+    this.preview?.finish(false);
   }
 
   clear(): void {
-    this.preview = undefined;
     this.documents.clear();
+    this.cancelPending();
     this.column = undefined;
   }
 

@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "Agent folgen",
+  "follow.title": "Gespeicherte Änderungen folgen",
   "follow.unavailable": "Wähle einen Agenten im Chat aus und öffne ein vertrauenswürdiges lokales Projekt, um Änderungen zu verfolgen.",
   "follow.openFolder": "Zuerst einen lokalen Projektordner öffnen.",
   "follow.chooseRoot": "Projektwurzel auswählen",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "Letzte Aktualisierung des Folgens fehlgeschlagen.",
   "follow.view": "Anzeigen",
   "follow.readFailed": "Der neueste Inhalt der gefolgten Datei konnte nicht gelesen werden.",
+  "follow.rootUnavailable": "Die gefolgte Projektwurzel ist nicht mehr verfügbar. Folgen wurde beendet.",
+  "follow.rootChanged": "Die gefolgte Projektwurzel hat sich geändert. Folgen wurde beendet.",
+  "follow.snapshotFailed": "Der Ordner-Snapshot für den neuesten Diff konnte nicht erstellt werden.",
+  "follow.snapshotLimited": "Der Snapshot ist teilweise; Dateien außerhalb der Basis verwenden frühere Speicherstände, sofern verfügbar, und der erste Speichervorgang ohne Verlauf legt die Referenz fest.",
 };

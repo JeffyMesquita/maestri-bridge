@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "エージェントを追跡",
+  "follow.title": "保存された変更をフォロー",
   "follow.unavailable": "変更を追跡するには、チャットでエージェントを選び、信頼されたローカルプロジェクトを開いてください。",
   "follow.openFolder": "ローカルプロジェクトのフォルダーを開いてください。",
   "follow.chooseRoot": "追跡するプロジェクトのルートを選択",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "フォローの最終更新に失敗しました。",
   "follow.view": "表示",
   "follow.readFailed": "フォロー中ファイルの最新内容を読み込めませんでした。",
+  "follow.rootUnavailable": "フォロー中のプロジェクトルートが利用できなくなりました。フォローを停止しました。",
+  "follow.rootChanged": "フォロー中のプロジェクトルートが変更されました。フォローを停止しました。",
+  "follow.snapshotFailed": "最新のdiff用にフォルダのスナップショットを準備できませんでした。",
+  "follow.snapshotLimited": "スナップショットは部分的です。ベースライン外のファイルは利用可能な場合に以前の保存を使用し、履歴のない最初の保存が参照を確立します。",
 };

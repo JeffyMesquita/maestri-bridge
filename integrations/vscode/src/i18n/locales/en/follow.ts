@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "Follow agent",
+  "follow.title": "Follow saved changes",
   "follow.unavailable": "Select a chat agent and open a trusted local project to use Follow.",
   "follow.openFolder": "Open a local project folder first.",
   "follow.chooseRoot": "Choose the project root to follow",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "Last update failed while following.",
   "follow.view": "View",
   "follow.readFailed": "Could not read the latest content of the followed file.",
+  "follow.rootUnavailable": "The followed project root is no longer available. Follow stopped.",
+  "follow.rootChanged": "The followed project root changed. Follow stopped.",
+  "follow.snapshotFailed": "Could not prepare the folder snapshot for the latest diff.",
+  "follow.snapshotLimited": "The snapshot is partial; files outside the baseline use earlier saves when available, and the first save without history establishes the reference.",
 };

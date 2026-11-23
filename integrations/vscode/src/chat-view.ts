@@ -29,7 +29,9 @@ export function registerChatView(
       label: t(phase === 'starting' ? 'follow.statusStarting'
         : phase === 'following' ? 'follow.statusFollowing' : 'follow.statusPaused'),
       toggleLabel: t('follow.toggle'),
-      tooltip: error ? t('follow.updateFailed') : t('follow.title'),
+      tooltip: summary?.errorReason ? t(`follow.${summary.errorReason}`)
+        : error ? t('follow.updateFailed')
+          : summary?.limited ? t('follow.snapshotLimited') : t('follow.title'),
       viewLabel: phase === 'paused' && pendingCount > 0
         ? t(pendingCount === 1 ? 'follow.pendingOne' : 'follow.pendingMany', { count: pendingCount })
         : undefined,

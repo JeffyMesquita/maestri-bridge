@@ -3,6 +3,7 @@ import { t } from '../i18n/index.ts';
 
 export function createFollowToggle(send: (action: 'toggle' | 'view') => void): {
   toggle: HTMLButtonElement;
+  pendingRow: HTMLDivElement;
   pending: HTMLButtonElement;
   update: (view?: FollowToggleView) => void;
 } {
@@ -18,6 +19,10 @@ export function createFollowToggle(send: (action: 'toggle' | 'view') => void): {
   pending.type = 'button';
   pending.className = 'follow-pending';
   pending.hidden = true;
+  const pendingRow = document.createElement('div');
+  pendingRow.className = 'follow-pending-row';
+  pendingRow.hidden = true;
+  pendingRow.append(pending);
 
   let signature = '';
 
@@ -26,6 +31,7 @@ export function createFollowToggle(send: (action: 'toggle' | 'view') => void): {
 
   return {
     toggle,
+    pendingRow,
     pending,
     update(view) {
       const next = JSON.stringify(view ?? null);
@@ -39,6 +45,7 @@ export function createFollowToggle(send: (action: 'toggle' | 'view') => void): {
         toggle.setAttribute('aria-label', t('follow.toggle'));
         label.textContent = t('follow.toggle');
         pending.hidden = true;
+        pendingRow.hidden = true;
         return;
       }
       toggle.setAttribute('aria-pressed', String(view.pressed));
@@ -50,6 +57,7 @@ export function createFollowToggle(send: (action: 'toggle' | 'view') => void): {
       pending.textContent = view.viewLabel ?? '';
       pending.hidden = view.viewLabel === undefined;
       pending.title = view.viewLabel ?? '';
+      pendingRow.hidden = view.viewLabel === undefined;
     },
   };
 }

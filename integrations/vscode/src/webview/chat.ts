@@ -100,7 +100,7 @@ moreButton.setAttribute('aria-haspopup', 'menu');
 moreButton.setAttribute('aria-expanded', 'false');
 moreWrap.append(moreButton);
 
-headerRow.append(agentButton, followToggle.toggle, followToggle.pending, openButton, moreWrap);
+headerRow.append(agentButton, followToggle.toggle, openButton, moreWrap);
 
 const threadRow = el('div', 'thread-row');
 const threadsBox = el('div', 'threads');
@@ -163,7 +163,7 @@ floatingMenu.hidden = true;
 floatingMenu.setAttribute('role', 'menu');
 document.body.append(floatingMenu);
 
-root.append(header, banners, scrollArea, composer);
+root.append(header, followToggle.pendingRow, banners, scrollArea, composer);
 app.append(root);
 
 compactStatus = root.clientWidth < 360;

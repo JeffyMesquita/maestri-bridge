@@ -96,7 +96,7 @@ In a remote window, VS Code runs Maestri Bridge on the remote side, next to your
 
 Open a trusted local project, select the agent in Chat, and turn on **Follow** in the Chat header. The extension watches the selected folder and compares saved edits with the contents at the start of the session in a read-only VS Code diff. Folder changes are displayed without author attribution.
 
-Click or type in the editor to suspend navigation. **N files changed · View** lets you catch up and resume. Switching application focus or changing the layout keeps Follow running. Use **/show** separately when you want an explanation.
+Change the editor selection to suspend navigation. **N files changed · View** appears below the Chat header and opens the latest change directly to catch up and resume. Switching application focus or changing the layout keeps Follow running. Git ignore rules and native files.exclude filter eligible files; snapshot limits keep Follow running with a warning. Use **/show** separately when you want an explanation.
 
 [Follow usage and validation](docs/agent-follow.md).
 

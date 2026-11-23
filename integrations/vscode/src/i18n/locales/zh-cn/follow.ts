@@ -1,5 +1,5 @@
 export const follow = {
-  "follow.title": "跟随代理",
+  "follow.title": "跟随已保存的更改",
   "follow.unavailable": "在聊天中选择一个代理并打开受信任的本地项目，即可跟踪更改。",
   "follow.openFolder": "请先打开本地项目文件夹。",
   "follow.chooseRoot": "选择要跟随的项目根目录",
@@ -12,4 +12,8 @@ export const follow = {
   "follow.updateFailed": "跟随的上次更新失败。",
   "follow.view": "查看",
   "follow.readFailed": "无法读取被跟随文件的最新内容。",
+  "follow.rootUnavailable": "被跟随的项目根目录不再可用。跟随已停止。",
+  "follow.rootChanged": "被跟随的项目根目录已更改。跟随已停止。",
+  "follow.snapshotFailed": "无法为最新 diff 准备文件夹快照。",
+  "follow.snapshotLimited": "快照是部分的；基线之外的文件在可用时使用更早的保存，没有历史时的首次保存确立参考。",
 };

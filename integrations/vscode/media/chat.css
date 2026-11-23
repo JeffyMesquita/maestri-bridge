@@ -1151,6 +1151,12 @@ a:focus-visible {
   outline: 2px solid var(--vscode-focusBorder);
   outline-offset: 1px;
 }
+.follow-pending-row {
+  display: flex;
+  justify-content: flex-start;
+  padding: 2px 8px 6px;
+}
+.follow-pending-row[hidden] { display: none; }
 .follow-pending {
   flex: 0 0 auto;
   min-block-size: 22px;
