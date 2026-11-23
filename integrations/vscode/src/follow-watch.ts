@@ -5,6 +5,7 @@ import { gitIgnored } from './follow-excludes.ts';
 import { followLineDelta, followRootError, isFollowFileAllowed, pinFollowRoot, readFollowFile } from './follow-file.ts';
 import type { FollowRoot } from './follow-file.ts';
 
+
 export interface FollowChange {
   file: string;
   baseline: string | undefined;
@@ -39,6 +40,8 @@ interface Queued {
   kind: 'read' | 'delete';
   seq: number;
   time: number;
+  born: boolean;
+  probe?: string;
 }
 
 export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers): vscode.Disposable {
@@ -68,6 +71,7 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
   let repositorySeen = false;
   let active = false;
   let quietUntil = 0;
+  const inflight = new Map<string, Queued>();
 
   const announce = (next: boolean): void => {
     if (disposed || active === next) return;
@@ -99,6 +103,7 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
     known.clear();
     created.clear();
     present.clear();
+    inflight.clear();
   };
 
   const fail = (reason: FollowWatchError): void => {
@@ -181,6 +186,36 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
     return found.some((uri) => logical(uri) === file);
   };
 
+  const probe = async (pinned: FollowRoot, folder: string, names: Set<string>, version: number, entry: Queued): Promise<void> => {
+    if (!(await verifyRoot(pinned))) return;
+    if (disposed || rulesVersion !== version) return;
+    const base = vscode.Uri.file(join(pinned.path, folder));
+    const found = await vscode.workspace.findFiles(new vscode.RelativePattern(base, '**/*'), undefined, DISCOVERY_LIMIT + 1);
+    if (!(await verifyRoot(pinned))) return;
+    if (disposed || rulesVersion !== version) return;
+    if (found.length > DISCOVERY_LIMIT) {
+      textPartial = true;
+      warn('snapshotLimited');
+    }
+    let signature: string;
+    try { signature = `${found.length}|${(await lstat(join(pinned.path, folder))).mtimeMs}`; } catch { return; }
+    if (disposed || lastSeq.get(folder) !== entry.seq) return;
+    for (const uri of found.slice(0, DISCOVERY_LIMIT)) {
+      if (disposed || rulesVersion !== version) return;
+      const file = logical(uri);
+      if (file === undefined || !isFollowFileAllowed(file)) continue;
+      if (names.has(file) || baseline.has(file) || tracked.has(file) || present.has(file) || queued.has(file)) continue;
+      enqueue(uri, 'read', true);
+    }
+    if (disposed || lastSeq.get(folder) !== entry.seq) return;
+    if (entry.probe === signature) return;
+    queued.set(folder, { kind: 'read', seq: ++seq, time: Date.now(), born: true, probe: signature });
+    lastSeq.set(folder, seq);
+    quietUntil = performance.now() + BURST_MS;
+    announce(true);
+    trimNames();
+  };
+
   const refreshIgnored = async (pinned: FollowRoot, version: number): Promise<void> => {
     const candidates = [...new Set([...baseline.keys(), ...tracked.keys(), ...present])];
     const ignored = await ignoredSet(pinned, candidates);
@@ -214,17 +249,30 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
         if (!rulesCurrent()) return;
         refreshedRules = version;
       }
+      const folders = new Map<string, Queued>();
+      const names = new Set(batch.map(([file]) => file));
       for (const [file, event] of batch) {
         if (!rulesCurrent()) return;
         if (event.kind !== 'read') continue;
-        try { event.time = (await lstat(join(pinned.path, file))).mtimeMs; } catch {}
+        try {
+          const info = await lstat(join(pinned.path, file));
+          event.time = info.mtimeMs;
+          if (event.born && info.isDirectory()) folders.set(file, event);
+        } catch {}
       }
       if (!rulesCurrent()) return;
       batch.sort((a, b) => a[1].time - b[1].time || a[1].seq - b[1].seq);
       const ignored = await ignoredSet(pinned, batch.map(([file]) => file));
       if (ignored === undefined || !rulesCurrent()) return;
+      for (const [folder, entry] of folders) {
+        if (ignored.has(join(pinned.path, folder))) continue;
+        inflight.set(folder, entry);
+        try { await probe(pinned, folder, names, version, entry); } finally { inflight.delete(folder); }
+        if (!rulesCurrent()) return;
+      }
       for (; processed < batch.length && rulesCurrent(); processed++) {
         const [file, event] = batch[processed]!;
+        if (folders.has(file)) continue;
         if (lastSeq.get(file) !== event.seq || ignored.has(join(pinned.path, file))) continue;
         const previous = tracked.get(file);
         const initial = baseline.get(file);
@@ -288,10 +336,21 @@ export function watchFollowFiles(root: vscode.Uri, handlers: FollowWatchHandlers
       return;
     }
     if (basename(file) === '.gitignore') { rulesVersion++; invalidate(); }
+    const held = inflight.get(file);
+    if (kind === 'read' && held !== undefined && queued.get(file)?.kind !== 'delete') {
+      known.add(file);
+      queued.set(file, { kind: 'read', seq: ++seq, time: Date.now(), born: true, probe: held.probe });
+      lastSeq.set(file, seq);
+      trimNames();
+      quietUntil = performance.now() + BURST_MS;
+      announce(true);
+      schedule();
+      return;
+    }
     const wasKnown = known.delete(file) || baseline.has(file) || tracked.has(file);
     if (born && !wasKnown && namesComplete) created.add(file);
     known.add(file);
-    queued.set(file, { kind, seq: ++seq, time: Date.now() });
+    queued.set(file, { kind, seq: ++seq, time: Date.now(), born });
     lastSeq.set(file, seq);
     trimNames();
     quietUntil = performance.now() + BURST_MS;

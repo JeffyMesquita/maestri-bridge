@@ -750,6 +750,129 @@ describe('follow watcher rule invalidation', () => {
     watch.disposable.dispose();
   });
 
+  it('keeps the burst open while a newly created folder is still filling across waves', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const burst = join(root, 'burst');
+    await mkdir(burst);
+    const write = async (index: number): Promise<void> => {
+      const path = join(burst, `b${index}.mjs`);
+      await writeFile(path, `burst ${index}\n`);
+      const stamp = new Date(1700000000000 + index * 100);
+      await utimes(path, stamp, stamp);
+    };
+    for (let index = 0; index < 15; index += 1) await write(index);
+    watch.fire.create(burst);
+    watch.fire.create(join(burst, 'b0.mjs'));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    for (let index = 15; index < 30; index += 1) await write(index);
+    await vi.waitFor(() => expect(watch.changes.at(-1)?.file).toBe('burst/b29.mjs'), { timeout: 8000 });
+    expect(watch.changes).toHaveLength(30);
+    expect(new Set(watch.changes.map(({ file }) => file)).size).toBe(30);
+    for (const change of watch.changes) {
+      expect(change.baseline).toBeUndefined();
+      const index = change.file.slice('burst/b'.length, -'.mjs'.length);
+      expect(change.saved).toBe(`burst ${index}\n`);
+    }
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 8000 });
+    for (let index = 1; index < 30; index += 1) watch.fire.create(join(burst, `b${index}.mjs`));
+    await settle();
+    expect(watch.changes).toHaveLength(30);
+    expect(new Set(watch.changes.map(({ file }) => file)).size).toBe(30);
+    watch.disposable.dispose();
+  }, 25000);
+
+  it('releases activity once two new folders probe stable', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const first = join(root, 'first');
+    const second = join(root, 'second');
+    await mkdir(first);
+    await mkdir(second);
+    await writeFile(join(first, 'a.mjs'), 'first\n');
+    await writeFile(join(second, 'b.mjs'), 'second\n');
+    watch.fire.create(first);
+    watch.fire.create(second);
+    watch.fire.create(join(first, 'a.mjs'));
+    watch.fire.create(join(second, 'b.mjs'));
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(2), { timeout: 8000 });
+    expect(watch.changes.map(({ file }) => file).sort()).toEqual(['first/a.mjs', 'second/b.mjs']);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 8000 });
+    watch.disposable.dispose();
+  }, 20000);
+
+  it('keeps a probing folder open when its own change event arrives in flight', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const dir = join(root, 'grow');
+    await mkdir(dir);
+    await writeFile(join(dir, 'a.mjs'), 'a\n');
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    watch.fire.create(dir);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    watch.fire.save(dir);
+    release([{ fsPath: join(dir, 'a.mjs') }]);
+    await vi.waitFor(() => expect(watch.changes).toHaveLength(1), { timeout: 8000 });
+    expect(watch.changes[0]?.file).toBe('grow/a.mjs');
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 8000 });
+    watch.disposable.dispose();
+  }, 20000);
+
+  it('lets a newer delete win over an in-flight folder probe', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const dir = join(root, 'gone');
+    await mkdir(dir);
+    await writeFile(join(dir, 'a.mjs'), 'a\n');
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    watch.fire.create(dir);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    watch.fire.delete(dir);
+    release([{ fsPath: join(dir, 'a.mjs') }]);
+    await settle();
+    expect(watch.changes.filter(({ file }) => file.startsWith('gone/'))).toEqual([]);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 8000 });
+    watch.disposable.dispose();
+  }, 20000);
+
+  it('does not inherit probe state after a delete precedes a folder read', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const dir = join(root, 'gone');
+    await mkdir(dir);
+    await writeFile(join(dir, 'a.mjs'), 'a\n');
+    let release: (value: { fsPath: string }[]) => void = () => undefined;
+    mock.findFiles.mockImplementationOnce(() => new Promise((done) => { release = done; }));
+    watch.fire.create(dir);
+    await vi.waitFor(() => expect(mock.findFiles).toHaveBeenCalledTimes(2), { timeout: 5000 });
+    watch.fire.delete(dir);
+    watch.fire.save(dir);
+    release([{ fsPath: join(dir, 'a.mjs') }]);
+    await settle();
+    expect(watch.changes.filter(({ file }) => file.startsWith('gone/'))).toEqual([]);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 8000 });
+    watch.disposable.dispose();
+  }, 20000);
+
+  it('releases activity after one stable probe of an empty new folder', async () => {
+    const root = await project();
+    const watch = start(root);
+    await watch.ready;
+    const empty = join(root, 'empty');
+    await mkdir(empty);
+    watch.fire.create(empty);
+    await vi.waitFor(() => expect(watch.activity).toEqual([true, false]), { timeout: 5000 });
+    expect(watch.changes).toEqual([]);
+    watch.disposable.dispose();
+  }, 15000);
+
   it('times the quiet window on a monotonic clock when the civil clock jumps back', async () => {
     const root = await project();
     const file = join(root, 'a.ts');
