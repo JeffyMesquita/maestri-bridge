@@ -26,6 +26,8 @@ Use **/show** when you want the agent to explain code with highlighted lines and
 
 The final clip is 15 seconds (0-15) of the paired Windows host: the burst of thirty saved files ends on **burst/b29.mjs** with a single presentation in that window. **Stop was validated outside this clip**, after the recording; the clip does not show it. The window is the full 1920 × 1032 editor, without crop, scaling, masks or overlays. The GIF is 300 frames at 20 fps (1,043,773 bytes); the MP4 is 450 frames at 30 fps (228,303 bytes). The clip is real-editor evidence; it makes no continuous-playback claim.
 
+The explanatory 64-second cut is [GIF](images/follow-explained-20261123.gif) · [MP4](images/follow-explained-20261123.mp4). It is a didactic montage of two separate recordings: the Follow flow recorded at `e7a996a` and the burst recorded at `3f6e68d`. It is not a single session and not a new proof; the technical burst clip above remains the 15-second asset.
+
 <details>
 <summary>Historical media (60 s, superseded)</summary>
 
