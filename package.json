@@ -9,7 +9,7 @@
   },
   "scripts": {
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && node --test test/show-in-editor.test.mjs",
     "build": "pnpm --filter maestri-bridge build",
     "package": "pnpm --filter maestri-bridge package"
   }

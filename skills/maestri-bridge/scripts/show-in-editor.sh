@@ -34,12 +34,15 @@ encode() {
 open_link() {
   case "$(uname -s)" in
     Darwin) open "$1" ;;
-    MINGW* | MSYS* | CYGWIN*) cmd.exe /c start "" "$1" ;;
+    MINGW* | MSYS* | CYGWIN*)
+      # VS Code decodes one percent layer in Uri.query before the handler.
+      # Protect the canonical encoding so '&', '%' and '+' survive URLSearchParams.
+      protected=$(printf '%s' "$1" | sed 's/%/%25/g')
+      rundll32.exe url.dll,FileProtocolHandler "$protected"
+      ;;
     *)
       if command -v xdg-open >/dev/null 2>&1; then
         xdg-open "$1" >/dev/null 2>&1
-      elif command -v cmd.exe >/dev/null 2>&1; then
-        cmd.exe /c start "" "$1"
       else
         echo "$1"
       fi

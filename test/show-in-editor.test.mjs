@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const script = fileURLToPath(new URL('../scripts/show-in-editor.sh', import.meta.url));
+const script = fileURLToPath(new URL('../skills/maestri-bridge/scripts/show-in-editor.sh', import.meta.url));
 const env = { ...process.env };
 delete env.MAESTRI_BRIDGE_EDITOR;
 delete env.MAESTRI_TERMINAL_ID;
@@ -91,4 +91,40 @@ test('--editor escolhe o esquema do link', () => {
 
   assert.equal(url.protocol, 'cursor:');
   assert.equal(url.searchParams.get('lines'), '3');
+});
+
+test('abertura sem --print entrega o URI inteiro como um argumento', { skip: !isWindows }, () => {
+  const shimDir = path.join(base, 'shim');
+  mkdirSync(shimDir, { recursive: true });
+  const captured = path.join(base, 'argv.txt');
+  const shimPath = shimDir.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`);
+  const capturePath = captured.replaceAll('\\', '/').replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`);
+  writeFileSync(
+    path.join(shimDir, 'rundll32.exe'),
+    `#!/bin/sh\nprintf '%s\\n' "$@" > '${capturePath}'\n`,
+    { mode: 0o755 },
+  );
+
+  const noteAmp = 'nóta & linhas + 50%';
+  const shimEnv = {
+    ...env,
+    PATH: `${shimPath}:${env.PATH || ''}`,
+    MAESTRI_TERMINAL_ID: 'agent-1',
+  };
+  const result = run(['--from', 'Agent & Co', `${relativeFile}:2-3`, noteAmp], { cwd: base, env: shimEnv });
+  assert.equal(result.status, 0, result.stderr);
+
+  const argv = readFileSync(captured, 'utf8').trim().split('\n');
+  assert.equal(argv.length, 2, `argv inesperado: ${JSON.stringify(argv)}`);
+  assert.equal(argv[0], 'url.dll,FileProtocolHandler');
+  // Uri.parse decodifica uma camada na query antes de chegar ao parseShowLink.
+  const queryAfterUriParse = decodeURIComponent(argv[1].slice(argv[1].indexOf('?') + 1));
+  const uri = new URL(`vscode://maestri-bridge.maestri-bridge/show?${queryAfterUriParse}`);
+  assert.equal(uri.protocol, 'vscode:');
+  assert.equal(uri.host, 'maestri-bridge.maestri-bridge');
+  assert.equal(uri.searchParams.get('file'), nativeFile);
+  assert.equal(uri.searchParams.get('lines'), '2-3');
+  assert.equal(uri.searchParams.get('text'), noteAmp);
+  assert.equal(uri.searchParams.get('from'), 'Agent & Co');
+  assert.equal(uri.searchParams.get('agent'), 'agent-1');
 });
