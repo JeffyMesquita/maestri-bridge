@@ -49,8 +49,24 @@ export function registerAgentNotes(
   const checkpoints = new Map<string, vscode.CommentThread>();
   const storage = services.context.workspaceState;
   let pendingTour = readSavedNoteTour(storage.get<unknown>(SAVED_TOUR_KEY));
+  interface UnresolvedSlot { key: string; note: SavedNoteStop; index: number; agentKey: string }
+  let unresolvedStops: UnresolvedSlot[] = [];
+  let unresolvedTourKey: string | undefined;
+  let slotKeys: string[] = [];
+  let checkpointKey: string | undefined;
+  let generation = 0;
+  let serial: Promise<unknown> = Promise.resolve();
   let activeAgent: string | undefined;
   let disposed = false;
+
+  const noteKey = (note: SavedNoteStop): string =>
+    [note.file, note.anchor, note.startLine ?? '', note.endLine ?? ''].join('|');
+  // Serializa restore/retry/ingress para nao duplicar threads nem ressuscitar apos Clear.
+  const enqueue = <T>(work: () => Promise<T>): Promise<T> => {
+    const run = serial.then(work, work);
+    serial = run.catch(() => undefined);
+    return run;
+  };
 
   const activeTour = (): string | undefined =>
     activeAgent !== undefined && tours.stops(activeAgent).length > 0
@@ -58,27 +74,38 @@ export function registerAgentNotes(
       : tours.latestAgent();
 
   const saveTour = async (): Promise<void> => {
+    const saveGeneration = generation;
     if (disposed) {
       return;
     }
     const agentKey = activeTour();
     if (agentKey === undefined) {
-      await storage.update(SAVED_TOUR_KEY, pendingTour);
+      if (pendingTour !== undefined) {
+        if (generation === saveGeneration) {
+          await storage.update(SAVED_TOUR_KEY, placeUnresolved(pendingTour, pendingTour.agentKey));
+        }
+      } else if (generation === saveGeneration) {
+        const remaining = unresolvedStops.length === 0
+          ? undefined
+          : ({
+              version: 1,
+              agentKey: unresolvedTourKey ?? unresolvedStops[0]!.agentKey,
+              currentIndex: 0,
+              stops: unresolvedStops.map((item) => item.note),
+            } satisfies SavedNoteTour);
+        await storage.update(SAVED_TOUR_KEY, remaining);
+      }
       return;
     }
 
     const stops = tours.stops(agentKey);
     const savedStops: SavedNoteStop[] = [];
-    let currentIndex = 0;
     for (const { thread, ...location } of stops) {
       const info = threadAgent.get(thread);
       if (info === undefined) {
         continue;
       }
-      if (checkpoints.get(agentKey) === thread) {
-        currentIndex = savedStops.length;
-      }
-      savedStops.push({
+      const saved: SavedNoteStop = {
         ...location,
         ...info,
         comments: thread.comments.map((comment) => ({
@@ -86,19 +113,57 @@ export function registerAgentNotes(
           author: comment.author.name,
           isReply: comment.contextValue === 'maestri.note.you',
         })),
-      });
+      };
+      savedStops.push(saved);
+      const currentCheckpoint = checkpoints.get(agentKey);
+      if (currentCheckpoint === thread && currentCheckpoint !== undefined) {
+        checkpointKey = noteKey(saved);
+      }
     }
 
-    if (savedStops.length > 0) {
-      const snapshot: SavedNoteTour = {
-        version: 1,
-        agentKey,
-        currentIndex,
-        stops: savedStops,
-      };
+    const snapshot: SavedNoteTour = {
+      version: 1,
+      agentKey,
+      currentIndex: 0,
+      stops: savedStops,
+    };
+    const ordered = placeUnresolved(snapshot, agentKey);
+    if (ordered.stops.length === 0) {
       pendingTour = undefined;
-      await storage.update(SAVED_TOUR_KEY, snapshot);
+      slotKeys = [];
+      checkpointKey = undefined;
+      if (generation === saveGeneration) {
+        await storage.update(SAVED_TOUR_KEY, undefined);
+      }
+      return;
     }
+    if (ordered.stops.length > 0) {
+      ordered.currentIndex = Math.max(0, ordered.stops.findIndex(
+        (note) => noteKey(note) === checkpointKey,
+      ));
+      slotKeys = ordered.stops.map(noteKey);
+      pendingTour = undefined;
+      await storage.update(SAVED_TOUR_KEY, ordered);
+    }
+  };
+
+  const placeUnresolved = (snapshot: SavedNoteTour, agentKey: string): SavedNoteTour => {
+    const keys = slotKeys.length > 0 ? slotKeys : snapshot.stops.map(noteKey);
+    const byKey = new Map(snapshot.stops.map((note) => [noteKey(note), note] as const));
+    const ordered: SavedNoteStop[] = [];
+    for (const key of keys) {
+      const held = unresolvedStops.find((item) => item.key === key && item.agentKey === agentKey);
+      const note = held?.note ?? byKey.get(key);
+      if (note !== undefined) {
+        ordered.push(note);
+      }
+    }
+    for (const note of snapshot.stops) {
+      if (!keys.includes(noteKey(note))) {
+        ordered.push(note);
+      }
+    }
+    return { ...snapshot, stops: ordered };
   };
 
   const recordView = (thread: vscode.CommentThread): void => {
@@ -107,6 +172,11 @@ export function registerAgentNotes(
     if (position !== undefined && info !== undefined) {
       info.viewed = true;
       activeAgent = position.agentKey;
+      // Com slots ausentes, o checkpoint salvo nao deve saltar para a nota nova.
+      if (unresolvedStops.some((item) => item.agentKey === position.agentKey) &&
+          checkpointKey !== undefined) {
+        return;
+      }
       checkpoints.set(position.agentKey, thread);
     }
   };
@@ -174,7 +244,7 @@ export function registerAgentNotes(
   const agentLinksEnabled = (): boolean =>
     vscode.workspace.getConfiguration('maestriBridge').get<boolean>('agentLinks', true);
 
-  const restorePendingTour = async (): Promise<boolean> => {
+  const restorePendingTourInner = async (): Promise<boolean> => {
     const snapshot = pendingTour;
     if (snapshot === undefined) {
       return true;
@@ -185,16 +255,27 @@ export function registerAgentNotes(
       return false;
     }
 
-    const skipped = snapshot.stops.length - valid.length;
+    // Slots estaveis: a nota ausente conserva sua posicao e identificacao.
+    slotKeys = snapshot.stops.map(noteKey);
+    unresolvedStops = snapshot.stops
+      .map((note, index) => ({ note, index, agentKey: snapshot.agentKey, key: noteKey(note) }))
+      .filter((item) => !valid.some((entry) => entry.index === item.index));
+    unresolvedTourKey = unresolvedStops.length > 0 ? snapshot.agentKey : undefined;
+    const checkpointNote = snapshot.stops[snapshot.currentIndex];
+    checkpointKey = checkpointNote === undefined ? undefined : noteKey(checkpointNote);
+    const skipped = unresolvedStops.length;
     if (skipped > 0) {
       void vscode.window.showWarningMessage(t('notes.review.skipped', { count: skipped }));
     }
     if (valid.length === 0) {
-      return false;
+      // Tour inteiramente ausente continua restaurado em memoria: nao descartar slots.
+      pendingTour = undefined;
+      activeAgent = snapshot.agentKey;
+      return true;
     }
 
-    const stops = valid.map(({ note, document, range }): TourStop<vscode.CommentThread> => {
-      const { file, startLine, endLine, agentId, name, anchor, viewed, comments } = note;
+    const stops = valid.map(({ note, document, range, located }): TourStop<vscode.CommentThread> => {
+      const { file, agentId, name, anchor, viewed, comments } = note;
       const thread = createThread(
         document.uri,
         range,
@@ -206,12 +287,22 @@ export function registerAgentNotes(
         })),
         { agentId, name, anchor, viewed },
       );
-      return { file, startLine, endLine, thread };
+      return { ...located, file, thread };
     });
-    for (const stop of stops) {
-      tours.push(snapshot.agentKey, stop);
+    valid.forEach((entry, position) => {
+      const stop = stops[position];
+      if (stop !== undefined) {
+        tours.insertAt(snapshot.agentKey, stop, entry.index);
+      }
+    });
+    let currentIndex = valid.findIndex(({ index }) => index === snapshot.currentIndex);
+    if (currentIndex < 0 && valid.length > 0) {
+      // Checkpoint preservado: escolher o indice salvo mais proximo, nao o primeiro.
+      currentIndex = valid.reduce((best, item, index) =>
+        Math.abs(item.index - snapshot.currentIndex) < Math.abs(valid[best]!.index - snapshot.currentIndex)
+          ? index
+          : best, 0);
     }
-    const currentIndex = valid.findIndex(({ index }) => index === snapshot.currentIndex);
     const current = stops[Math.max(0, currentIndex)];
     if (current !== undefined) {
       checkpoints.set(snapshot.agentKey, current.thread);
@@ -222,6 +313,54 @@ export function registerAgentNotes(
     return true;
   };
 
+  const retryUnresolvedInner = async (): Promise<void> => {
+    const startedGeneration = generation;
+    if (disposed || unresolvedStops.length === 0 || !agentLinksEnabled()) {
+      return;
+    }
+    const tourKey = unresolvedTourKey ?? activeTour();
+    const unresolved = unresolvedStops.filter((item) => tourKey === undefined || item.agentKey === tourKey);
+    const resolved = await resolveSavedNoteStops(unresolved.map((item) => item.note));
+    if (disposed || resolved.length === 0 || generation !== startedGeneration) {
+      return;
+    }
+    const agentKey = tourKey ?? unresolved[0]?.agentKey ?? 'agent';
+    for (const { note, document, range, located } of resolved) {
+      const { agentId, name, anchor, viewed, comments } = note;
+      const thread = createThread(
+        document.uri,
+        range,
+        comments.map((comment) => ({
+          body: markdown(comment.text),
+          mode: vscode.CommentMode.Preview,
+          author: { name: comment.isReply ? t('notes.author.you') : comment.author },
+          contextValue: comment.isReply ? 'maestri.note.you' : 'maestri.note.agent',
+        })),
+        { agentId, name, anchor, viewed },
+      );
+      const slot = unresolved.find((item) => item.key === noteKey(note));
+      const resolvedKeys = new Set(resolved.map((entry) => noteKey(entry.note)));
+      const earlierUnresolved = slot === undefined ? 0 : unresolved.filter(
+        (item) => item.agentKey === agentKey && item.index < slot.index && !resolvedKeys.has(item.key),
+      ).length;
+      const insertIndex = slot === undefined ? tours.stops(agentKey).length
+        : Math.max(0, slot.index - earlierUnresolved);
+      tours.insertAt(agentKey, { ...located, file: note.file, thread }, insertIndex);
+    }
+    unresolvedStops = unresolvedStops.filter(
+      (item) => !resolved.some((entry) => noteKey(entry.note) === item.key),
+    );
+    if (unresolvedStops.length === 0) {
+      unresolvedTourKey = undefined;
+    }
+    activeAgent = agentKey;
+    updateLabels(agentKey);
+    await saveTour();
+  };
+
+  const restorePendingTour = (): Promise<boolean> => enqueue(restorePendingTourInner);
+  const retryUnresolved = (): Promise<void> => enqueue(retryUnresolvedInner);
+
   const reviewTour = async (chooseNote: boolean): Promise<void> => {
     try {
       if (!agentLinksEnabled()) {
@@ -231,6 +370,7 @@ export function registerAgentNotes(
       if (!(await restorePendingTour())) {
         return;
       }
+      await retryUnresolved();
       const agentKey = activeTour();
       const stops = agentKey === undefined ? [] : tours.stops(agentKey);
       if (agentKey === undefined || stops.length === 0) {
@@ -247,9 +387,17 @@ export function registerAgentNotes(
             index: index + 1,
             total: stops.length,
           }),
-          detail: item.startLine === undefined
-            ? undefined
-            : String(item.startLine) + '–' + String(item.endLine ?? item.startLine),
+          // Inicio do texto da nota, com a linha quando disponivel.
+          detail: [
+            item.thread.comments
+              .map((comment) => (typeof comment.body === 'string' ? comment.body : comment.body.value))
+              .join(' ')
+              .trim()
+              .slice(0, 160),
+            item.startLine === undefined
+              ? undefined
+              : String(item.startLine) + '–' + String(item.endLine ?? item.startLine),
+          ].filter(Boolean).join(' · '),
           stop: item,
         }));
         const choice = await vscode.window.showQuickPick(items, {
@@ -320,13 +468,27 @@ export function registerAgentNotes(
         return;
       }
 
+      // Retomada passiva: sem abrir arquivo, sem mover foco, antes de qualquer nota nova.
+      await restorePendingTour();
+
       const agentKey = request.agentId ?? request.from ?? 'agent';
       const { started, dropped } = tours.begin(agentKey, request.newTour);
       for (const thread of dropped) {
         disposeThread(thread);
       }
       if (started) {
-        checkpoints.delete(agentKey);
+        const heldUnresolved = unresolvedStops.some((item) => item.agentKey === agentKey);
+        const restart = request.newTour || unresolvedTourKey !== agentKey;
+        if (restart) {
+          generation += 1;
+          unresolvedStops = [];
+          unresolvedTourKey = undefined;
+        }
+        if (restart || !heldUnresolved) {
+          checkpoints.delete(agentKey);
+          checkpointKey = undefined;
+          slotKeys = [];
+        }
       }
       const existing = tours.find(agentKey, location);
       const comment: vscode.Comment = {
@@ -411,6 +573,7 @@ export function registerAgentNotes(
     thread?: vscode.CommentThread,
   ): Promise<void> => {
     try {
+      await retryUnresolved();
       let base: TourStop<vscode.CommentThread> | undefined;
       if (thread !== undefined) {
         const position = tours.position(thread);
@@ -425,7 +588,11 @@ export function registerAgentNotes(
           void vscode.window.showInformationMessage(t('notes.empty'));
           return;
         }
-        base = stopAtSelection(agentKey) ?? firstOrLast(agentKey, direction);
+        const checkpoint = checkpoints.get(agentKey);
+        const checkpointStop = checkpoint === undefined
+          ? undefined
+          : tours.stops(agentKey).find((stop) => stop.thread === checkpoint);
+        base = stopAtSelection(agentKey) ?? checkpointStop ?? firstOrLast(agentKey, direction);
       }
 
       if (base === undefined) {
@@ -447,13 +614,24 @@ export function registerAgentNotes(
     if (thread === undefined) {
       return;
     }
-    const agentKey = tours.remove(thread);
+    const position = tours.position(thread);
+    const agentKey = position?.agentKey;
+    const stops = agentKey === undefined ? [] : tours.stops(agentKey);
+    // Checkpoint ao fechar: proxima na ordem do tour, ou anterior na borda.
+    const index = position?.index ?? -1;
+    const nextCheckpoint = stops[index + 1] ?? stops[index - 1];
+    const wasCheckpoint = agentKey !== undefined && checkpoints.get(agentKey) === thread;
+
+    const removedKey = tours.remove(thread);
     disposeThread(thread);
-    if (agentKey !== undefined) {
-      if (checkpoints.get(agentKey) === thread) {
-        checkpoints.delete(agentKey);
+    if (removedKey !== undefined) {
+      if (wasCheckpoint) {
+        checkpoints.delete(removedKey);
+        if (nextCheckpoint !== undefined) {
+          checkpoints.set(removedKey, nextCheckpoint.thread);
+        }
       }
-      updateLabels(agentKey);
+      updateLabels(removedKey);
       await saveTour();
     }
   };
@@ -467,7 +645,12 @@ export function registerAgentNotes(
   };
 
   const clearAll = async (): Promise<void> => {
+    generation += 1;
     pendingTour = undefined;
+    unresolvedStops = [];
+    unresolvedTourKey = undefined;
+    slotKeys = [];
+    checkpointKey = undefined;
     clearThreads();
     await storage.update(SAVED_TOUR_KEY, undefined);
   };
@@ -573,6 +756,9 @@ export function registerAgentNotes(
   const clearAllCommand = vscode.commands.registerCommand('maestriBridge.notes.clearAll', clearAll);
   const replyCommand = vscode.commands.registerCommand('maestriBridge.notes.reply', reply);
   const uriHandler = vscode.window.registerUriHandler({ handleUri });
+
+  // Ativacao restaura o tour salvo sem revelar notas ou roubar foco.
+  void restorePendingTour();
 
   return new vscode.Disposable(() => {
     disposed = true;

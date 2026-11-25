@@ -58,6 +58,17 @@ export class NoteTours<T> {
       );
   }
 
+  insertAt(agentKey: string, stop: TourStop<T>, index: number): void {
+    const tour = this.tours.get(agentKey);
+    if (tour === undefined) {
+      this.push(agentKey, stop);
+      return;
+    }
+    tour.stops.splice(Math.max(0, Math.min(index, tour.stops.length)), 0, stop);
+    tour.lastTouch = this.now();
+    this.lastAgentKey = agentKey;
+  }
+
   push(agentKey: string, stop: TourStop<T>): void {
     const tour = this.tours.get(agentKey);
     if (tour === undefined) {
